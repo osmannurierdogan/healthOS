@@ -802,7 +802,7 @@ function renderWeeklyMeasurements() {
       </table>
     ` : '<p class="kpi-target">Henüz ölçüm eklenmedi.</p>'}
     ${insightHtml}
-    <div class="grid" style="grid-template-columns:repeat(2,1fr); gap:8px; margin-top:12px;">
+    <div class="measure-input-grid">
       <div class="form-row"><label>Kilo (kg)</label><input type="number" step="0.1" id="measure-weight"></div>
       <div class="form-row"><label>Saf Kas (kg)</label><input type="number" step="0.1" id="measure-muscle"></div>
       <div class="form-row"><label>Saf Yağ (kg)</label><input type="number" step="0.1" id="measure-fat"></div>
