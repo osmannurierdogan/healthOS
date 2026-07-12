@@ -4,17 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Osman'ın Sağlık &amp; İş Protokolü</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
 
+  <section id="load-gate" class="card hidden">
+    <div class="section-label"><span class="dot"></span>BAŞLAT</div>
+    <h2>protocol_state.json otomatik yüklenemedi</h2>
+    <p class="hint-text">Bu genelde dosyayı doğrudan çift tıklayarak (file://) açtığınızda olur — tarayıcılar yerel dosyalardan otomatik veri okumaya izin vermez. Bir yerel sunucu üzerinden çalıştırın, ya da aşağıdan devam edin:</p>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="document.getElementById('gate-file-input').click()">JSON Dosyasını Yükle</button>
+      <button class="btn btn-ghost" onclick="startWithDefaults()">Varsayılan Verilerle Başla</button>
+      <input type="file" id="gate-file-input" accept="application/json" class="hidden" onchange="handleImportFile(event)">
+    </div>
+  </section>
+
+  <div id="app-root" class="hidden">
+
+  <div id="save-status-banner" class="banner banner-warning hidden"></div>
   <div id="water-warning-banner" class="banner banner-danger hidden"></div>
   <div id="gluten-warning-banner" class="banner banner-warning hidden"></div>
   <div id="electrolyte-banner" class="banner banner-info hidden"></div>
 
   <header id="profile-card" class="card"></header>
 
+  <div class="section-label"><span class="dot"></span>GÜNLÜK YAŞAMSAL VERİLER</div>
   <section id="kpi-bar" class="grid grid-3">
     <div id="water-card" class="card"></div>
     <div id="steps-card" class="card"></div>
@@ -29,9 +47,36 @@
 
   <section id="weekly-measurements" class="card"></section>
 
+  <section id="history-charts" class="card">
+    <div class="section-label"><span class="dot"></span>GEÇMİŞ &amp; TRENDLER</div>
+    <h2>Tarihçe Grafikleri</h2>
+    <div class="chart-grid">
+      <div class="chart-block">
+        <h3>Kilo Trendi</h3>
+        <canvas id="chart-weight"></canvas>
+      </div>
+      <div class="chart-block">
+        <h3>Su Tüketimi Geçmişi</h3>
+        <canvas id="chart-water"></canvas>
+      </div>
+      <div class="chart-block">
+        <h3>Adım Geçmişi</h3>
+        <canvas id="chart-steps"></canvas>
+      </div>
+      <div class="chart-block">
+        <h3>Haftalık Vücut Kompozisyonu</h3>
+        <canvas id="chart-weekly" class="hidden"></canvas>
+        <p id="chart-weekly-empty" class="hint-text">Henüz yeterli veri yok — en az 2 haftalık ölçüm ekleyince burada trend görünecek.</p>
+      </div>
+    </div>
+  </section>
+
   <section id="json-view" class="card">
     <div class="section-header">
-      <h2>Ham JSON (protocol_state.json)</h2>
+      <div>
+        <div class="section-label"><span class="dot"></span>DIŞA AKTAR</div>
+        <h2>Ham JSON (protocol_state.json)</h2>
+      </div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="copyJSON()">Kopyala</button>
         <button class="btn btn-ghost" onclick="exportJSON()">İndir</button>
@@ -43,7 +88,9 @@
     <textarea id="json-output" readonly spellcheck="false"></textarea>
   </section>
 
+  </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="app.js"></script>
 </body>
 </html>

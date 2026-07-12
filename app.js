@@ -1,11 +1,14 @@
 /* ============================================================
    Osman's Health & Business Protocol Tracker — app.js
    Single-file vanilla JS SPA. State lives in `state` (mirrors
-   protocol_state.json) and is persisted to localStorage on every
-   change via commit(). No framework, no build step.
+   protocol_state.json). No localStorage for app data: the source
+   of truth is protocol_state.json in this repo, fetched on load.
+   Changes stay in-memory for the session — use "İndir" to export
+   the updated JSON and commit it back to the repo. No framework,
+   no build step.
    ============================================================ */
 
-const STORAGE_KEY = 'healthos_protocol_state_v1';
+const STATE_FILE = 'protocol_state.json';
 
 const CYCLE_DAYS_TR = ['Cuma', 'Cumartesi', 'Pazar', 'Pazartesi'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -150,7 +153,13 @@ function getDefaultState() {
       cycle_days: CYCLE_DAYS_TR,
       programs: WORKOUT_PROGRAMS
     },
-    weekly_measurements: []
+    weekly_measurements: [
+      { date: '2026-05-16', weight: 156.4, muscle_mass_kg: 88.3, fat_mass_kg: 63.3, fluid_kg: 62.1 },
+      { date: '2026-06-05', weight: 153.2, muscle_mass_kg: 87.1, fat_mass_kg: 61.4, fluid_kg: 60.5 },
+      { date: '2026-06-20', weight: 153.4, muscle_mass_kg: 88.4, fat_mass_kg: 60.4, fluid_kg: 63.8 },
+      { date: '2026-06-27', weight: 151.7, muscle_mass_kg: 87.0, fat_mass_kg: 60.1, fluid_kg: 60.9 },
+      { date: '2026-07-04', weight: 153.5, muscle_mass_kg: 88.1, fat_mass_kg: 60.6, fluid_kg: 63.3 }
+    ]
   };
 }
 
@@ -183,30 +192,39 @@ function dayIdForDate(dateStr) {
   return idx === -1 ? 1 : idx + 1;
 }
 
-/* ---------------- Persistence ---------------- */
+/* ---------------- Persistence ----------------
+   No localStorage for app data. protocol_state.json in this repo is
+   the single source of truth: fetched on load, edited in memory for
+   the session, and written back to the repo via "İndir" (the user
+   commits the downloaded file). If the fetch can't run (e.g. the
+   page was opened directly as a file:// URL), a load gate offers a
+   manual file picker or starting from defaults instead. */
 
 let state = null;
+let hasUnsavedChanges = false;
 
-function loadState() {
+function isValidState(data) {
+  return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
+}
+
+async function fetchStateFile() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultState();
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.user_profile || !Array.isArray(parsed.daily_logs)) {
-      return getDefaultState();
-    }
-    return parsed;
+    const res = await fetch(STATE_FILE, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return isValidState(data) ? data : null;
   } catch (e) {
-    return getDefaultState();
+    return null;
   }
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function commit() {
+  hasUnsavedChanges = true;
+  render();
 }
 
-function commit() {
-  saveState();
+function markSaved() {
+  hasUnsavedChanges = false;
   render();
 }
 
@@ -218,9 +236,10 @@ function ensureTodayLog() {
   if (!last || last.date !== today) {
     const carryWeight = last ? last.weight : state.user_profile.current_weight;
     state.daily_logs.push(newLog(today, carryWeight));
-  } else {
-    if (!last.symptoms) last.symptoms = { headache: false, fatigue: false };
+    return true;
   }
+  if (!last.symptoms) last.symptoms = { headache: false, fatigue: false };
+  return false;
 }
 
 function currentLog() {
@@ -231,6 +250,7 @@ function currentLog() {
 
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
+let charts = { weight: null, water: null, steps: null, weekly: null };
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -340,7 +360,8 @@ function exportJSON() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showJSONStatus('İndirildi: protocol_state.json');
+  markSaved();
+  showJSONStatus('İndirildi — repodaki protocol_state.json dosyasının yerine koyup commit edin.');
 }
 
 function copyJSON() {
@@ -370,16 +391,17 @@ function handleImportFile(evt) {
     try {
       const imported = JSON.parse(reader.result);
       const merged = Object.assign(getDefaultState(), imported);
-      state = merged;
-      ensureTodayLog();
-      commit();
-      showJSONStatus('Yüklendi!');
+      activateState(merged, 'Yüklendi!');
     } catch (e) {
       alert('Geçersiz JSON dosyası: ' + e.message);
     }
   };
   reader.readAsText(file);
   evt.target.value = '';
+}
+
+function startWithDefaults() {
+  activateState(getDefaultState(), 'Varsayılan verilerle başlatıldı.');
 }
 
 /* ---------------- SOP business logic ---------------- */
@@ -423,6 +445,7 @@ function weeklyInsight(list) {
 /* ---------------- Render functions ---------------- */
 
 function render() {
+  renderSaveStatus();
   renderBanners();
   renderProfileCard();
   renderWaterCard();
@@ -432,7 +455,19 @@ function render() {
   renderSymptomsNotes();
   renderWorkoutModule();
   renderWeeklyMeasurements();
+  renderCharts();
   renderJSONView();
+}
+
+function renderSaveStatus() {
+  const el = document.getElementById('save-status-banner');
+  if (!el) return;
+  if (hasUnsavedChanges) {
+    el.textContent = '⚠️ Kaydedilmemiş değişiklikler var — kalıcı hale getirmek için "İndir"e basıp protocol_state.json dosyasını repoya yükleyin.';
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
 }
 
 function renderBanners() {
@@ -474,7 +509,7 @@ function renderProfileCard() {
   document.getElementById('profile-card').innerHTML = `
     <div class="profile-top">
       <h1>${p.name}</h1>
-      <span class="profile-weights"><strong>${log.weight.toFixed(1)} kg</strong> → ${p.target_weight.toFixed(1)} kg hedef</span>
+      <span class="profile-weights"><strong>${log.weight.toFixed(1)} kg</strong> → <span class="lime-mark">${p.target_weight.toFixed(1)} kg</span> hedef</span>
     </div>
     <div class="progress-track"><div class="progress-fill success" style="width:${pct}%"></div></div>
     <div class="progress-label"><span>Başlangıç: ${startWeight.toFixed(1)} kg</span><span>%${pct.toFixed(0)} tamamlandı</span></div>
@@ -490,7 +525,8 @@ function renderWaterCard() {
   const log = currentLog();
   const pct = Math.min(100, (log.water_consumed_liters / p.daily_water_target_liters) * 100);
   document.getElementById('water-card').innerHTML = `
-    <h3>💧 Su Tüketimi</h3>
+    <div class="kpi-icon-badge">💧</div>
+    <h3>Su Tüketimi</h3>
     <div class="kpi-value">${log.water_consumed_liters.toFixed(1)} L</div>
     <div class="kpi-target">Hedef: ${p.daily_water_target_liters.toFixed(1)} L</div>
     <div class="progress-track" style="margin-top:8px;"><div class="progress-fill ${isWaterRisk(log) ? 'danger' : ''}" style="width:${pct}%"></div></div>
@@ -505,7 +541,8 @@ function renderStepsCard() {
   const log = currentLog();
   const pct = Math.min(100, (log.steps_walked / p.daily_step_target) * 100);
   document.getElementById('steps-card').innerHTML = `
-    <h3>👣 Adım Sayısı</h3>
+    <div class="kpi-icon-badge">👣</div>
+    <h3>Adım Sayısı</h3>
     <div class="kpi-value">${log.steps_walked.toLocaleString('tr-TR')}</div>
     <div class="kpi-target">Hedef: ${p.daily_step_target.toLocaleString('tr-TR')}</div>
     <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -518,7 +555,8 @@ function renderStepsCard() {
 function renderGlutenCard() {
   const log = currentLog();
   document.getElementById('gluten-card').innerHTML = `
-    <h3>🌾 Glütensiz Gün</h3>
+    <div class="kpi-icon-badge">🌾</div>
+    <h3>Glütensiz Gün</h3>
     <div class="kpi-value" style="font-size:16px;">${log.is_gluten_free ? 'Glütensiz ✅' : 'Glüten Tüketildi ⚠️'}</div>
     <div class="gluten-row">
       <span class="kpi-target">Bugün glüten tüketildi mi?</span>
@@ -558,6 +596,7 @@ function renderSupplementTimeline() {
   }).join('');
 
   document.getElementById('supplement-timeline').innerHTML = `
+    <div class="section-label"><span class="dot"></span>PROTOKOL</div>
     <h2>Zaman Tüneli & Supplement Protokolü</h2>
     ${blocksHtml}
   `;
@@ -566,6 +605,7 @@ function renderSupplementTimeline() {
 function renderSymptomsNotes() {
   const log = currentLog();
   document.getElementById('symptoms-notes').innerHTML = `
+    <div class="section-label"><span class="dot"></span>DURUM</div>
     <h2>Semptomlar & Notlar</h2>
     <div class="symptom-row">
       <label class="symptom-check">
@@ -632,6 +672,7 @@ function renderWorkoutModule() {
   }
 
   document.getElementById('workout-module').innerHTML = `
+    <div class="section-label"><span class="dot"></span>ANTRENMAN</div>
     <h2>Antrenman Modülü — 4 Günlük Döngü</h2>
     <div class="pill-row">${pillsHtml}</div>
     <h3>${program.name}</h3>
@@ -658,6 +699,7 @@ function renderWeeklyMeasurements() {
     ? '<p class="kpi-target">Bugün Tanita ölçüm günü — yeni verileri aşağıya ekle.</p>' : '';
 
   document.getElementById('weekly-measurements').innerHTML = `
+    <div class="section-label"><span class="dot"></span>HAFTALIK ANALİZ</div>
     <h2>Haftalık Tanita Ölçümleri</h2>
     ${weekendHint}
     ${list.length ? `
@@ -677,15 +719,158 @@ function renderWeeklyMeasurements() {
   `;
 }
 
+function chartPalette() {
+  const css = getComputedStyle(document.documentElement);
+  const get = (name, fallback) => (css.getPropertyValue(name) || fallback).trim();
+  return {
+    lime: get('--lime', '#BEE436'),
+    limeBright: get('--lime-bright', '#C4EB42'),
+    dark: get('--dark', '#1A2E23'),
+    muted: get('--muted', '#6B7268'),
+    text: get('--text', '#0B1410'),
+    grid: get('--chart-grid', 'rgba(11,20,16,.08)'),
+    danger: get('--danger', '#ff5c5c'),
+    warning: get('--warning', '#f5b942')
+  };
+}
+
+function baseChartOptions(colors) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, labels: { color: colors.text, font: { family: 'DM Sans', size: 11 }, boxWidth: 12 } }
+    },
+    scales: {
+      x: { ticks: { color: colors.muted, font: { family: 'DM Sans', size: 10 } }, grid: { color: colors.grid } },
+      y: { ticks: { color: colors.muted, font: { family: 'DM Sans', size: 10 } }, grid: { color: colors.grid } }
+    }
+  };
+}
+
+function upsertChart(key, canvasId, config) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (charts[key]) charts[key].destroy();
+  charts[key] = new Chart(canvas, config);
+}
+
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+  const colors = chartPalette();
+  const opts = baseChartOptions(colors);
+  const logs = [...state.daily_logs].sort((a, b) => a.date.localeCompare(b.date));
+  const labels = logs.map(l => l.date.slice(5));
+
+  upsertChart('weight', 'chart-weight', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Kilo (kg)', data: logs.map(l => l.weight), borderColor: colors.lime, backgroundColor: colors.lime, tension: .3, pointRadius: 3 },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.target_weight), borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  upsertChart('water', 'chart-water', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Su (L)', data: logs.map(l => l.water_consumed_liters), backgroundColor: colors.lime },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.daily_water_target_liters), type: 'line', borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  upsertChart('steps', 'chart-steps', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Adım', data: logs.map(l => l.steps_walked), backgroundColor: colors.lime },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.daily_step_target), type: 'line', borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  const weekly = [...state.weekly_measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const weeklyCanvas = document.getElementById('chart-weekly');
+  const weeklyEmpty = document.getElementById('chart-weekly-empty');
+  if (weekly.length < 2) {
+    weeklyCanvas.classList.add('hidden');
+    weeklyEmpty.classList.remove('hidden');
+    if (charts.weekly) { charts.weekly.destroy(); charts.weekly = null; }
+  } else {
+    weeklyCanvas.classList.remove('hidden');
+    weeklyEmpty.classList.add('hidden');
+    const wLabels = weekly.map(m => m.date.slice(5));
+    upsertChart('weekly', 'chart-weekly', {
+      type: 'line',
+      data: {
+        labels: wLabels,
+        datasets: [
+          { label: 'Kilo', data: weekly.map(m => m.weight), borderColor: colors.lime, tension: .3, pointRadius: 3 },
+          { label: 'Saf Kas', data: weekly.map(m => m.muscle_mass_kg), borderColor: colors.limeBright, tension: .3, pointRadius: 3 },
+          { label: 'Saf Yağ', data: weekly.map(m => m.fat_mass_kg), borderColor: colors.warning, tension: .3, pointRadius: 3 },
+          { label: 'Sıvı', data: weekly.map(m => m.fluid_kg), borderColor: colors.muted, tension: .3, pointRadius: 3 }
+        ]
+      },
+      options: opts
+    });
+  }
+}
+
 function renderJSONView() {
   document.getElementById('json-output').value = JSON.stringify(state, null, 2);
 }
 
+/* ---------------- Entrance animation (one-time, load-triggered) ---------------- */
+
+function setupEntranceAnimation() {
+  document.querySelectorAll('.card').forEach((el, i) => {
+    el.classList.add('reveal');
+    el.style.animationDelay = `${Math.min(i, 8) * 40}ms`;
+  });
+}
+
+/* ---------------- Load gate (fetch failed / no file yet) ---------------- */
+
+let appInitialized = false;
+
+function activateState(newState, statusMsg) {
+  state = newState;
+  const rolledOver = ensureTodayLog();
+  hasUnsavedChanges = rolledOver;
+  hideLoadGate();
+  document.getElementById('app-root').classList.remove('hidden');
+  render();
+  if (!appInitialized) setupEntranceAnimation();
+  appInitialized = true;
+  if (statusMsg) showJSONStatus(statusMsg);
+}
+
+function showLoadGate() {
+  document.getElementById('load-gate').classList.remove('hidden');
+  document.getElementById('app-root').classList.add('hidden');
+}
+
+function hideLoadGate() {
+  document.getElementById('load-gate').classList.add('hidden');
+}
+
 /* ---------------- Init ---------------- */
 
-document.addEventListener('DOMContentLoaded', () => {
-  state = loadState();
-  ensureTodayLog();
-  saveState();
-  render();
+document.addEventListener('DOMContentLoaded', async () => {
+  const fetched = await fetchStateFile();
+  if (fetched) {
+    activateState(fetched, `${STATE_FILE} yüklendi.`);
+  } else {
+    showLoadGate();
+  }
 });
