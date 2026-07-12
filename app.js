@@ -1,14 +1,17 @@
 /* ============================================================
    Osman's Health & Business Protocol Tracker — app.js
    Single-file vanilla JS SPA. State lives in `state` (mirrors
-   protocol_state.json). No localStorage for app data: the source
-   of truth is protocol_state.json in this repo, fetched on load.
-   Changes stay in-memory for the session — use "İndir" to export
-   the updated JSON and commit it back to the repo. No framework,
-   no build step.
+   protocol_state.json). Reads/writes go through /api/data (a
+   Netlify Function backed by Netlify Blobs) — no GitHub commit
+   per save, no external token. The only thing in localStorage is
+   a single shared password used to authorize that endpoint; the
+   repo's protocol_state.json is just the seed/fallback value.
+   No framework, no build step.
    ============================================================ */
 
+const API_URL = '/api/data';
 const STATE_FILE = 'protocol_state.json';
+const TOKEN_KEY = 'healthos-token';
 
 const CYCLE_DAYS_TR = ['Cuma', 'Cumartesi', 'Pazar', 'Pazartesi'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -193,16 +196,14 @@ function dayIdForDate(dateStr) {
 }
 
 /* ---------------- Persistence ----------------
-   No localStorage for app data. protocol_state.json in this repo is
-   the single source of truth: fetched on load, edited in memory for
-   the session. "Kaydet" writes changes back for real via the
-   /.netlify/functions/save-state serverless function, which commits
-   the updated file to the repo through GitHub's API. "İndir" stays
-   available as a manual backup/export option. If the fetch can't run
-   (e.g. the page was opened directly as a file:// URL), a load gate
-   offers a manual file picker or starting from defaults instead. */
-
-const SAVE_ENDPOINT = '/.netlify/functions/save-state';
+   Reads and writes go through /api/data — a Netlify Function backed
+   by Netlify Blobs, gated by a single shared password. No GitHub
+   commit per save, no external token to provision. The only thing
+   ever written to localStorage is that password (just a credential,
+   not app data); the repo's protocol_state.json is only the seed
+   value used when the blob store is empty. If the API can't be
+   reached at all, a load gate offers a manual file picker or
+   starting from defaults instead. */
 
 let state = null;
 let hasUnsavedChanges = false;
@@ -211,6 +212,38 @@ let saveErrorMsg = null;
 
 function isValidState(data) {
   return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
+}
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+}
+function setToken(t) {
+  try { localStorage.setItem(TOKEN_KEY, t); } catch (e) { /* ignore */ }
+}
+function clearToken() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* ignore */ }
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+function fetchWithToken(url, options) {
+  const opts = Object.assign({}, options, {
+    headers: Object.assign({}, options && options.headers, authHeaders())
+  });
+  return fetch(url, opts);
+}
+
+async function tryLoadFromApi() {
+  try {
+    const res = await fetchWithToken(API_URL, { cache: 'no-store' });
+    if (res.status === 401) { clearToken(); return null; }
+    if (!res.ok) return null;
+    const data = await res.json();
+    return isValidState(data) ? data : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function fetchStateFile() {
@@ -235,23 +268,27 @@ function markSaved() {
   render();
 }
 
-async function saveToRepo() {
+async function saveState() {
   saveUiState = 'saving';
   saveErrorMsg = null;
   render();
   try {
-    const res = await fetch(SAVE_ENDPOINT, {
+    const res = await fetchWithToken(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state)
     });
+    if (res.status === 401) {
+      clearToken();
+      const entered = window.prompt('Parola geçersiz görünüyor. Tekrar girin:');
+      if (entered) {
+        setToken(entered.trim());
+        return saveState();
+      }
+      throw new Error('Yetkilendirme gerekli.');
+    }
     if (!res.ok) {
-      let msg = `Sunucu hatası (${res.status})`;
-      try {
-        const data = await res.json();
-        if (data && data.error) msg = data.error;
-      } catch (e) { /* ignore */ }
-      throw new Error(msg);
+      throw new Error(`Sunucu hatası (${res.status})`);
     }
     hasUnsavedChanges = false;
     saveUiState = 'saved';
@@ -516,11 +553,11 @@ function renderSaveStatus() {
   } else if (saveUiState === 'error') {
     el.classList.remove('hidden');
     el.classList.add('banner-danger');
-    el.innerHTML = `⚠️ Kaydetme başarısız: ${saveErrorMsg} <button class="btn btn-primary btn-small" onclick="saveToRepo()">Tekrar Dene</button>`;
+    el.innerHTML = `⚠️ Kaydetme başarısız: ${saveErrorMsg} <button class="btn btn-primary btn-small" onclick="saveState()">Tekrar Dene</button>`;
   } else if (hasUnsavedChanges) {
     el.classList.remove('hidden');
     el.classList.add('banner-warning');
-    el.innerHTML = `⚠️ Kaydedilmemiş değişiklikler var. <button class="btn btn-primary btn-small" onclick="saveToRepo()">Kaydet</button>`;
+    el.innerHTML = `⚠️ Kaydedilmemiş değişiklikler var. <button class="btn btn-primary btn-small" onclick="saveState()">Kaydet</button>`;
   } else {
     el.classList.add('hidden');
   }
@@ -922,10 +959,28 @@ function hideLoadGate() {
 
 /* ---------------- Init ---------------- */
 
+async function initLoad() {
+  if (getToken()) {
+    const data = await tryLoadFromApi();
+    if (data) return data;
+  }
+
+  const entered = window.prompt('Bu panoya erişmek için parolayı girin:');
+  if (entered) {
+    setToken(entered.trim());
+    const data = await tryLoadFromApi();
+    if (data) return data;
+    showJSONStatus('Parola yanlış görünüyor ya da sunucuya ulaşılamadı — salt okunur moda geçiliyor.');
+  }
+
+  // Fallback: read-only static file (works even without the API, e.g. local testing)
+  return fetchStateFile();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const fetched = await fetchStateFile();
-  if (fetched) {
-    activateState(fetched, `${STATE_FILE} yüklendi.`);
+  const loaded = await initLoad();
+  if (loaded) {
+    activateState(loaded, getToken() ? 'Yüklendi.' : `${STATE_FILE} yüklendi (salt okunur).`);
   } else {
     showLoadGate();
   }
