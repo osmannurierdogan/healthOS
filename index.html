@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Osman'ın Sağlık &amp; İş Protokolü</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <div id="water-warning-banner" class="banner banner-danger hidden"></div>
+  <div id="gluten-warning-banner" class="banner banner-warning hidden"></div>
+  <div id="electrolyte-banner" class="banner banner-info hidden"></div>
+
+  <header id="profile-card" class="card"></header>
+
+  <section id="kpi-bar" class="grid grid-3">
+    <div id="water-card" class="card"></div>
+    <div id="steps-card" class="card"></div>
+    <div id="gluten-card" class="card"></div>
+  </section>
+
+  <section id="supplement-timeline" class="card"></section>
+
+  <section id="symptoms-notes" class="card"></section>
+
+  <section id="workout-module" class="card"></section>
+
+  <section id="weekly-measurements" class="card"></section>
+
+  <section id="json-view" class="card">
+    <div class="section-header">
+      <h2>Ham JSON (protocol_state.json)</h2>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="copyJSON()">Kopyala</button>
+        <button class="btn btn-ghost" onclick="exportJSON()">İndir</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('import-file-input').click()">Yükle</button>
+        <input type="file" id="import-file-input" accept="application/json" class="hidden" onchange="handleImportFile(event)">
+      </div>
+    </div>
+    <span id="json-status" class="status-text"></span>
+    <textarea id="json-output" readonly spellcheck="false"></textarea>
+  </section>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

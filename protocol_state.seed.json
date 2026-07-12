@@ -1,0 +1,99 @@
+{
+  "user_profile": {
+    "name": "Osman Nuri Erdoğan",
+    "current_weight": 153.5,
+    "target_weight": 145.0,
+    "daily_water_target_liters": 4.0,
+    "daily_step_target": 8500
+  },
+  "daily_logs": [
+    {
+      "date": "2026-07-12",
+      "weight": 153.5,
+      "water_consumed_liters": 0.0,
+      "steps_walked": 0,
+      "is_gluten_free": true,
+      "symptoms": {
+        "headache": false,
+        "fatigue": false
+      },
+      "supplements": {
+        "bromelain_morning_1030": false,
+        "diaformin_lunch_1200": false,
+        "livex90_lunch_1200": false,
+        "omega3_lunch_1200": false,
+        "zinc_lunch_1200": false,
+        "folic_acid_lunch_1200": false,
+        "devit3_friday_only": false,
+        "bromelain_afternoon_1630": false,
+        "berliv_dinner_2000": false,
+        "livex90_dinner_2000": false,
+        "magnesium_night_2230": false
+      },
+      "workout_completed": null,
+      "notes": "İshal sonrası toparlanma, baş ağrısı kontrolü."
+    }
+  ],
+  "workout_programs": {
+    "cycle_days": ["Cuma", "Cumartesi", "Pazar", "Pazartesi"],
+    "programs": [
+      {
+        "day_id": 1,
+        "name": "Upper & Arm Isolation",
+        "exercises": [
+          { "name": "Goblet Squat", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Single Arm Dumbbell Shoulder Press", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Bench Press", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Single Arm Dumbbell Row", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Seated Leg Curl", "sets": 3, "reps": 15, "target_rir": 1.5 },
+          { "name": "Cable Pallof Hold", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Biceps Curl", "sets": 3, "reps": 10, "target_rir": 1.0, "note": "Bu ağırlık tek kol için. Sağ + sol toplam 2x ile çalışıyorum." },
+          { "name": "Dumbbell Overhead Extension", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Hammer Curl", "sets": 3, "reps": 10, "target_rir": 1.0, "note": "Bu ağırlık tek kol için. Sağ + sol toplam 2x ile çalışıyorum." }
+        ]
+      },
+      {
+        "day_id": 2,
+        "name": "Back & Back Leg",
+        "exercises": [
+          { "name": "Dumbbell Romanian Deadlift", "sets": 3, "reps": 10, "target_rir": 2.0 },
+          { "name": "Seated Cable Row", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Pecdeck Fly", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Lat Pulldown Wide Grip", "sets": 3, "reps": 10, "target_rir": 2.0 },
+          { "name": "Standing Wood Chopper", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Biceps Curl", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Upright Row", "sets": 3, "reps": 10, "target_rir": 1.0, "note": "Barbell ile yapıyorum." }
+        ]
+      },
+      {
+        "day_id": 3,
+        "name": "Core & Power & Arms",
+        "exercises": [
+          { "name": "Goblet Squat", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Bench Press", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Lat Pulldown Wide Grip", "sets": 3, "reps": 10, "target_rir": 2.0 },
+          { "name": "Triceps Pushdown", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Cable Pallof Hold", "sets": 3, "reps": 10, "target_rir": 1.0, "note": "Sağ + Sol = 1 set." },
+          { "name": "Single Arm Carry", "sets": 3, "reps": 10, "target_rir": 1.0, "note": "Sağ + Sol = 1 set - 15 adım tek taraf." },
+          { "name": "Dumbbell Biceps Curl", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Dumbbell Overhead Extension", "sets": 3, "reps": 8, "target_rir": 1.0 },
+          { "name": "Dumbbell Hammer Curl", "sets": 3, "reps": 10, "target_rir": 1.0 }
+        ]
+      },
+      {
+        "day_id": 4,
+        "name": "Lower Body Isolation & Arms",
+        "exercises": [
+          { "name": "Goblet Squat", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Seated Leg Curl", "sets": 3, "reps": 10, "target_rir": 1.5 },
+          { "name": "Seated Calf Raise", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Pecdeck Fly", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Lat Pulldown Wide Grip", "sets": 3, "reps": 10, "target_rir": 2.0 },
+          { "name": "Dumbbell Biceps Curl", "sets": 3, "reps": 10, "target_rir": 1.0 },
+          { "name": "Triceps Pushdown", "sets": 3, "reps": 10, "target_rir": 1.0 }
+        ]
+      }
+    ]
+  },
+  "weekly_measurements": []
+}
