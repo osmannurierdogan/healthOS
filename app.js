@@ -195,13 +195,19 @@ function dayIdForDate(dateStr) {
 /* ---------------- Persistence ----------------
    No localStorage for app data. protocol_state.json in this repo is
    the single source of truth: fetched on load, edited in memory for
-   the session, and written back to the repo via "İndir" (the user
-   commits the downloaded file). If the fetch can't run (e.g. the
-   page was opened directly as a file:// URL), a load gate offers a
-   manual file picker or starting from defaults instead. */
+   the session. "Kaydet" writes changes back for real via the
+   /.netlify/functions/save-state serverless function, which commits
+   the updated file to the repo through GitHub's API. "İndir" stays
+   available as a manual backup/export option. If the fetch can't run
+   (e.g. the page was opened directly as a file:// URL), a load gate
+   offers a manual file picker or starting from defaults instead. */
+
+const SAVE_ENDPOINT = '/.netlify/functions/save-state';
 
 let state = null;
 let hasUnsavedChanges = false;
+let saveUiState = 'idle'; // 'idle' | 'saving' | 'saved' | 'error'
+let saveErrorMsg = null;
 
 function isValidState(data) {
   return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
@@ -220,12 +226,47 @@ async function fetchStateFile() {
 
 function commit() {
   hasUnsavedChanges = true;
+  if (saveUiState !== 'idle') saveUiState = 'idle';
   render();
 }
 
 function markSaved() {
   hasUnsavedChanges = false;
   render();
+}
+
+async function saveToRepo() {
+  saveUiState = 'saving';
+  saveErrorMsg = null;
+  render();
+  try {
+    const res = await fetch(SAVE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    });
+    if (!res.ok) {
+      let msg = `Sunucu hatası (${res.status})`;
+      try {
+        const data = await res.json();
+        if (data && data.error) msg = data.error;
+      } catch (e) { /* ignore */ }
+      throw new Error(msg);
+    }
+    hasUnsavedChanges = false;
+    saveUiState = 'saved';
+    render();
+    setTimeout(() => {
+      if (saveUiState === 'saved') {
+        saveUiState = 'idle';
+        render();
+      }
+    }, 2500);
+  } catch (e) {
+    saveUiState = 'error';
+    saveErrorMsg = e.message || 'Bilinmeyen hata';
+    render();
+  }
 }
 
 /* ---------------- Rollover ---------------- */
@@ -360,8 +401,7 @@ function exportJSON() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  markSaved();
-  showJSONStatus('İndirildi — repodaki protocol_state.json dosyasının yerine koyup commit edin.');
+  showJSONStatus('İndirildi (yedek kopya) — repoyu güncellemek için "Kaydet" butonunu kullanın.');
 }
 
 function copyJSON() {
@@ -462,9 +502,25 @@ function render() {
 function renderSaveStatus() {
   const el = document.getElementById('save-status-banner');
   if (!el) return;
-  if (hasUnsavedChanges) {
-    el.textContent = '⚠️ Kaydedilmemiş değişiklikler var — kalıcı hale getirmek için "İndir"e basıp protocol_state.json dosyasını repoya yükleyin.';
+
+  el.classList.remove('banner-warning', 'banner-danger', 'banner-success');
+
+  if (saveUiState === 'saving') {
     el.classList.remove('hidden');
+    el.classList.add('banner-warning');
+    el.innerHTML = `⏳ Kaydediliyor...`;
+  } else if (saveUiState === 'saved') {
+    el.classList.remove('hidden');
+    el.classList.add('banner-success');
+    el.innerHTML = `✅ Kaydedildi.`;
+  } else if (saveUiState === 'error') {
+    el.classList.remove('hidden');
+    el.classList.add('banner-danger');
+    el.innerHTML = `⚠️ Kaydetme başarısız: ${saveErrorMsg} <button class="btn btn-primary btn-small" onclick="saveToRepo()">Tekrar Dene</button>`;
+  } else if (hasUnsavedChanges) {
+    el.classList.remove('hidden');
+    el.classList.add('banner-warning');
+    el.innerHTML = `⚠️ Kaydedilmemiş değişiklikler var. <button class="btn btn-primary btn-small" onclick="saveToRepo()">Kaydet</button>`;
   } else {
     el.classList.add('hidden');
   }
