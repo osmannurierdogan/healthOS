@@ -150,7 +150,13 @@ function getDefaultState() {
       cycle_days: CYCLE_DAYS_TR,
       programs: WORKOUT_PROGRAMS
     },
-    weekly_measurements: []
+    weekly_measurements: [
+      { date: '2026-05-16', weight: 156.4, muscle_mass_kg: 88.3, fat_mass_kg: 63.3, fluid_kg: 62.1 },
+      { date: '2026-06-05', weight: 153.2, muscle_mass_kg: 87.1, fat_mass_kg: 61.4, fluid_kg: 60.5 },
+      { date: '2026-06-20', weight: 153.4, muscle_mass_kg: 88.4, fat_mass_kg: 60.4, fluid_kg: 63.8 },
+      { date: '2026-06-27', weight: 151.7, muscle_mass_kg: 87.0, fat_mass_kg: 60.1, fluid_kg: 60.9 },
+      { date: '2026-07-04', weight: 153.5, muscle_mass_kg: 88.1, fat_mass_kg: 60.6, fluid_kg: 63.3 }
+    ]
   };
 }
 
