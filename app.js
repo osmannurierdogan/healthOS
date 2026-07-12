@@ -231,6 +231,7 @@ function currentLog() {
 
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
+let charts = { weight: null, water: null, steps: null, weekly: null };
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -432,6 +433,7 @@ function render() {
   renderSymptomsNotes();
   renderWorkoutModule();
   renderWeeklyMeasurements();
+  renderCharts();
   renderJSONView();
 }
 
@@ -474,7 +476,7 @@ function renderProfileCard() {
   document.getElementById('profile-card').innerHTML = `
     <div class="profile-top">
       <h1>${p.name}</h1>
-      <span class="profile-weights"><strong>${log.weight.toFixed(1)} kg</strong> → ${p.target_weight.toFixed(1)} kg hedef</span>
+      <span class="profile-weights"><strong>${log.weight.toFixed(1)} kg</strong> → <span class="lime-mark">${p.target_weight.toFixed(1)} kg</span> hedef</span>
     </div>
     <div class="progress-track"><div class="progress-fill success" style="width:${pct}%"></div></div>
     <div class="progress-label"><span>Başlangıç: ${startWeight.toFixed(1)} kg</span><span>%${pct.toFixed(0)} tamamlandı</span></div>
@@ -490,7 +492,8 @@ function renderWaterCard() {
   const log = currentLog();
   const pct = Math.min(100, (log.water_consumed_liters / p.daily_water_target_liters) * 100);
   document.getElementById('water-card').innerHTML = `
-    <h3>💧 Su Tüketimi</h3>
+    <div class="kpi-icon-badge">💧</div>
+    <h3>Su Tüketimi</h3>
     <div class="kpi-value">${log.water_consumed_liters.toFixed(1)} L</div>
     <div class="kpi-target">Hedef: ${p.daily_water_target_liters.toFixed(1)} L</div>
     <div class="progress-track" style="margin-top:8px;"><div class="progress-fill ${isWaterRisk(log) ? 'danger' : ''}" style="width:${pct}%"></div></div>
@@ -505,7 +508,8 @@ function renderStepsCard() {
   const log = currentLog();
   const pct = Math.min(100, (log.steps_walked / p.daily_step_target) * 100);
   document.getElementById('steps-card').innerHTML = `
-    <h3>👣 Adım Sayısı</h3>
+    <div class="kpi-icon-badge">👣</div>
+    <h3>Adım Sayısı</h3>
     <div class="kpi-value">${log.steps_walked.toLocaleString('tr-TR')}</div>
     <div class="kpi-target">Hedef: ${p.daily_step_target.toLocaleString('tr-TR')}</div>
     <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -518,7 +522,8 @@ function renderStepsCard() {
 function renderGlutenCard() {
   const log = currentLog();
   document.getElementById('gluten-card').innerHTML = `
-    <h3>🌾 Glütensiz Gün</h3>
+    <div class="kpi-icon-badge">🌾</div>
+    <h3>Glütensiz Gün</h3>
     <div class="kpi-value" style="font-size:16px;">${log.is_gluten_free ? 'Glütensiz ✅' : 'Glüten Tüketildi ⚠️'}</div>
     <div class="gluten-row">
       <span class="kpi-target">Bugün glüten tüketildi mi?</span>
@@ -558,6 +563,7 @@ function renderSupplementTimeline() {
   }).join('');
 
   document.getElementById('supplement-timeline').innerHTML = `
+    <div class="section-label"><span class="dot"></span>PROTOKOL</div>
     <h2>Zaman Tüneli & Supplement Protokolü</h2>
     ${blocksHtml}
   `;
@@ -566,6 +572,7 @@ function renderSupplementTimeline() {
 function renderSymptomsNotes() {
   const log = currentLog();
   document.getElementById('symptoms-notes').innerHTML = `
+    <div class="section-label"><span class="dot"></span>DURUM</div>
     <h2>Semptomlar & Notlar</h2>
     <div class="symptom-row">
       <label class="symptom-check">
@@ -632,6 +639,7 @@ function renderWorkoutModule() {
   }
 
   document.getElementById('workout-module').innerHTML = `
+    <div class="section-label"><span class="dot"></span>ANTRENMAN</div>
     <h2>Antrenman Modülü — 4 Günlük Döngü</h2>
     <div class="pill-row">${pillsHtml}</div>
     <h3>${program.name}</h3>
@@ -658,6 +666,7 @@ function renderWeeklyMeasurements() {
     ? '<p class="kpi-target">Bugün Tanita ölçüm günü — yeni verileri aşağıya ekle.</p>' : '';
 
   document.getElementById('weekly-measurements').innerHTML = `
+    <div class="section-label"><span class="dot"></span>HAFTALIK ANALİZ</div>
     <h2>Haftalık Tanita Ölçümleri</h2>
     ${weekendHint}
     ${list.length ? `
@@ -677,8 +686,123 @@ function renderWeeklyMeasurements() {
   `;
 }
 
+function chartPalette() {
+  const css = getComputedStyle(document.documentElement);
+  const get = (name, fallback) => (css.getPropertyValue(name) || fallback).trim();
+  return {
+    lime: get('--lime', '#BEE436'),
+    limeBright: get('--lime-bright', '#C4EB42'),
+    muted: get('--muted', '#8A9488'),
+    text: get('--paper', '#FFFFFF'),
+    grid: 'rgba(255,255,255,.08)',
+    danger: get('--danger', '#ff5c5c'),
+    warning: get('--warning', '#f5b942')
+  };
+}
+
+function baseChartOptions(colors) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, labels: { color: colors.text, font: { family: 'DM Sans', size: 11 }, boxWidth: 12 } }
+    },
+    scales: {
+      x: { ticks: { color: colors.muted, font: { family: 'DM Sans', size: 10 } }, grid: { color: colors.grid } },
+      y: { ticks: { color: colors.muted, font: { family: 'DM Sans', size: 10 } }, grid: { color: colors.grid } }
+    }
+  };
+}
+
+function upsertChart(key, canvasId, config) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (charts[key]) charts[key].destroy();
+  charts[key] = new Chart(canvas, config);
+}
+
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+  const colors = chartPalette();
+  const opts = baseChartOptions(colors);
+  const logs = [...state.daily_logs].sort((a, b) => a.date.localeCompare(b.date));
+  const labels = logs.map(l => l.date.slice(5));
+
+  upsertChart('weight', 'chart-weight', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Kilo (kg)', data: logs.map(l => l.weight), borderColor: colors.lime, backgroundColor: colors.lime, tension: .3, pointRadius: 3 },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.target_weight), borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  upsertChart('water', 'chart-water', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Su (L)', data: logs.map(l => l.water_consumed_liters), backgroundColor: colors.lime },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.daily_water_target_liters), type: 'line', borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  upsertChart('steps', 'chart-steps', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Adım', data: logs.map(l => l.steps_walked), backgroundColor: colors.lime },
+        { label: 'Hedef', data: logs.map(() => state.user_profile.daily_step_target), type: 'line', borderColor: colors.muted, borderDash: [6, 4], pointRadius: 0 }
+      ]
+    },
+    options: opts
+  });
+
+  const weekly = [...state.weekly_measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const weeklyCanvas = document.getElementById('chart-weekly');
+  const weeklyEmpty = document.getElementById('chart-weekly-empty');
+  if (weekly.length < 2) {
+    weeklyCanvas.classList.add('hidden');
+    weeklyEmpty.classList.remove('hidden');
+    if (charts.weekly) { charts.weekly.destroy(); charts.weekly = null; }
+  } else {
+    weeklyCanvas.classList.remove('hidden');
+    weeklyEmpty.classList.add('hidden');
+    const wLabels = weekly.map(m => m.date.slice(5));
+    upsertChart('weekly', 'chart-weekly', {
+      type: 'line',
+      data: {
+        labels: wLabels,
+        datasets: [
+          { label: 'Kilo', data: weekly.map(m => m.weight), borderColor: colors.lime, tension: .3, pointRadius: 3 },
+          { label: 'Saf Kas', data: weekly.map(m => m.muscle_mass_kg), borderColor: colors.limeBright, tension: .3, pointRadius: 3 },
+          { label: 'Saf Yağ', data: weekly.map(m => m.fat_mass_kg), borderColor: colors.warning, tension: .3, pointRadius: 3 },
+          { label: 'Sıvı', data: weekly.map(m => m.fluid_kg), borderColor: colors.muted, tension: .3, pointRadius: 3 }
+        ]
+      },
+      options: opts
+    });
+  }
+}
+
 function renderJSONView() {
   document.getElementById('json-output').value = JSON.stringify(state, null, 2);
+}
+
+/* ---------------- Entrance animation (one-time, load-triggered) ---------------- */
+
+function setupEntranceAnimation() {
+  document.querySelectorAll('.card').forEach((el, i) => {
+    el.classList.add('reveal');
+    el.style.animationDelay = `${Math.min(i, 8) * 40}ms`;
+  });
 }
 
 /* ---------------- Init ---------------- */
@@ -688,4 +812,5 @@ document.addEventListener('DOMContentLoaded', () => {
   ensureTodayLog();
   saveState();
   render();
+  setupEntranceAnimation();
 });
