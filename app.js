@@ -1,11 +1,14 @@
 /* ============================================================
    Osman's Health & Business Protocol Tracker — app.js
    Single-file vanilla JS SPA. State lives in `state` (mirrors
-   protocol_state.json) and is persisted to localStorage on every
-   change via commit(). No framework, no build step.
+   protocol_state.json). No localStorage for app data: the source
+   of truth is protocol_state.json in this repo, fetched on load.
+   Changes stay in-memory for the session — use "İndir" to export
+   the updated JSON and commit it back to the repo. No framework,
+   no build step.
    ============================================================ */
 
-const STORAGE_KEY = 'healthos_protocol_state_v1';
+const STATE_FILE = 'protocol_state.json';
 
 const CYCLE_DAYS_TR = ['Cuma', 'Cumartesi', 'Pazar', 'Pazartesi'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -189,30 +192,39 @@ function dayIdForDate(dateStr) {
   return idx === -1 ? 1 : idx + 1;
 }
 
-/* ---------------- Persistence ---------------- */
+/* ---------------- Persistence ----------------
+   No localStorage for app data. protocol_state.json in this repo is
+   the single source of truth: fetched on load, edited in memory for
+   the session, and written back to the repo via "İndir" (the user
+   commits the downloaded file). If the fetch can't run (e.g. the
+   page was opened directly as a file:// URL), a load gate offers a
+   manual file picker or starting from defaults instead. */
 
 let state = null;
+let hasUnsavedChanges = false;
 
-function loadState() {
+function isValidState(data) {
+  return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
+}
+
+async function fetchStateFile() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultState();
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.user_profile || !Array.isArray(parsed.daily_logs)) {
-      return getDefaultState();
-    }
-    return parsed;
+    const res = await fetch(STATE_FILE, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return isValidState(data) ? data : null;
   } catch (e) {
-    return getDefaultState();
+    return null;
   }
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function commit() {
+  hasUnsavedChanges = true;
+  render();
 }
 
-function commit() {
-  saveState();
+function markSaved() {
+  hasUnsavedChanges = false;
   render();
 }
 
@@ -224,9 +236,10 @@ function ensureTodayLog() {
   if (!last || last.date !== today) {
     const carryWeight = last ? last.weight : state.user_profile.current_weight;
     state.daily_logs.push(newLog(today, carryWeight));
-  } else {
-    if (!last.symptoms) last.symptoms = { headache: false, fatigue: false };
+    return true;
   }
+  if (!last.symptoms) last.symptoms = { headache: false, fatigue: false };
+  return false;
 }
 
 function currentLog() {
@@ -347,7 +360,8 @@ function exportJSON() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showJSONStatus('İndirildi: protocol_state.json');
+  markSaved();
+  showJSONStatus('İndirildi — repodaki protocol_state.json dosyasının yerine koyup commit edin.');
 }
 
 function copyJSON() {
@@ -377,16 +391,17 @@ function handleImportFile(evt) {
     try {
       const imported = JSON.parse(reader.result);
       const merged = Object.assign(getDefaultState(), imported);
-      state = merged;
-      ensureTodayLog();
-      commit();
-      showJSONStatus('Yüklendi!');
+      activateState(merged, 'Yüklendi!');
     } catch (e) {
       alert('Geçersiz JSON dosyası: ' + e.message);
     }
   };
   reader.readAsText(file);
   evt.target.value = '';
+}
+
+function startWithDefaults() {
+  activateState(getDefaultState(), 'Varsayılan verilerle başlatıldı.');
 }
 
 /* ---------------- SOP business logic ---------------- */
@@ -430,6 +445,7 @@ function weeklyInsight(list) {
 /* ---------------- Render functions ---------------- */
 
 function render() {
+  renderSaveStatus();
   renderBanners();
   renderProfileCard();
   renderWaterCard();
@@ -441,6 +457,17 @@ function render() {
   renderWeeklyMeasurements();
   renderCharts();
   renderJSONView();
+}
+
+function renderSaveStatus() {
+  const el = document.getElementById('save-status-banner');
+  if (!el) return;
+  if (hasUnsavedChanges) {
+    el.textContent = '⚠️ Kaydedilmemiş değişiklikler var — kalıcı hale getirmek için "İndir"e basıp protocol_state.json dosyasını repoya yükleyin.';
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
 }
 
 function renderBanners() {
@@ -698,9 +725,10 @@ function chartPalette() {
   return {
     lime: get('--lime', '#BEE436'),
     limeBright: get('--lime-bright', '#C4EB42'),
-    muted: get('--muted', '#8A9488'),
-    text: get('--paper', '#FFFFFF'),
-    grid: 'rgba(255,255,255,.08)',
+    dark: get('--dark', '#1A2E23'),
+    muted: get('--muted', '#6B7268'),
+    text: get('--text', '#0B1410'),
+    grid: get('--chart-grid', 'rgba(11,20,16,.08)'),
     danger: get('--danger', '#ff5c5c'),
     warning: get('--warning', '#f5b942')
   };
@@ -811,12 +839,38 @@ function setupEntranceAnimation() {
   });
 }
 
+/* ---------------- Load gate (fetch failed / no file yet) ---------------- */
+
+let appInitialized = false;
+
+function activateState(newState, statusMsg) {
+  state = newState;
+  const rolledOver = ensureTodayLog();
+  hasUnsavedChanges = rolledOver;
+  hideLoadGate();
+  document.getElementById('app-root').classList.remove('hidden');
+  render();
+  if (!appInitialized) setupEntranceAnimation();
+  appInitialized = true;
+  if (statusMsg) showJSONStatus(statusMsg);
+}
+
+function showLoadGate() {
+  document.getElementById('load-gate').classList.remove('hidden');
+  document.getElementById('app-root').classList.add('hidden');
+}
+
+function hideLoadGate() {
+  document.getElementById('load-gate').classList.add('hidden');
+}
+
 /* ---------------- Init ---------------- */
 
-document.addEventListener('DOMContentLoaded', () => {
-  state = loadState();
-  ensureTodayLog();
-  saveState();
-  render();
-  setupEntranceAnimation();
+document.addEventListener('DOMContentLoaded', async () => {
+  const fetched = await fetchStateFile();
+  if (fetched) {
+    activateState(fetched, `${STATE_FILE} yüklendi.`);
+  } else {
+    showLoadGate();
+  }
 });

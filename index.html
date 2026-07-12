@@ -12,6 +12,20 @@
 <body>
 <div class="app">
 
+  <section id="load-gate" class="card hidden">
+    <div class="section-label"><span class="dot"></span>BAŞLAT</div>
+    <h2>protocol_state.json otomatik yüklenemedi</h2>
+    <p class="hint-text">Bu genelde dosyayı doğrudan çift tıklayarak (file://) açtığınızda olur — tarayıcılar yerel dosyalardan otomatik veri okumaya izin vermez. Bir yerel sunucu üzerinden çalıştırın, ya da aşağıdan devam edin:</p>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="document.getElementById('gate-file-input').click()">JSON Dosyasını Yükle</button>
+      <button class="btn btn-ghost" onclick="startWithDefaults()">Varsayılan Verilerle Başla</button>
+      <input type="file" id="gate-file-input" accept="application/json" class="hidden" onchange="handleImportFile(event)">
+    </div>
+  </section>
+
+  <div id="app-root" class="hidden">
+
+  <div id="save-status-banner" class="banner banner-warning hidden"></div>
   <div id="water-warning-banner" class="banner banner-danger hidden"></div>
   <div id="gluten-warning-banner" class="banner banner-warning hidden"></div>
   <div id="electrolyte-banner" class="banner banner-info hidden"></div>
@@ -74,6 +88,7 @@
     <textarea id="json-output" readonly spellcheck="false"></textarea>
   </section>
 
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="app.js"></script>
