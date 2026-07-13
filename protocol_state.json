@@ -35,7 +35,7 @@
     }
   ],
   "workout_programs": {
-    "cycle_days": ["Cuma", "Cumartesi", "Pazar", "Pazartesi"],
+    "cycle_days": ["Gün #1", "Gün #2", "Gün #3", "Gün #4"],
     "programs": [
       {
         "day_id": 1,
