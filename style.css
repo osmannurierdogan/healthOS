@@ -320,7 +320,7 @@ textarea#notes-input {
   cursor: pointer;
 }
 .pill.active { border-color: var(--lime); color: var(--accent-ink); background: var(--lime); }
-.pill.today::after { content: " • bugün"; font-size: 10px; text-transform: none; letter-spacing: 0; }
+.pill.suggested::after { content: " • sıradaki"; font-size: 10px; text-transform: none; letter-spacing: 0; }
 .exercise-row {
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; gap: 10px;

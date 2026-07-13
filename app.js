@@ -13,7 +13,7 @@ const API_URL = '/api/data';
 const STATE_FILE = 'protocol_state.json';
 const TOKEN_KEY = 'healthos-token';
 
-const CYCLE_DAYS_TR = ['Cuma', 'Cumartesi', 'Pazar', 'Pazartesi'];
+const CYCLE_DAY_LABELS = ['Gün #1', 'Gün #2', 'Gün #3', 'Gün #4'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
 const SUPPLEMENT_TIMELINE = [
@@ -153,7 +153,7 @@ function getDefaultState() {
     },
     daily_logs: [newLog(todayISO(), 153.5)],
     workout_programs: {
-      cycle_days: CYCLE_DAYS_TR,
+      cycle_days: CYCLE_DAY_LABELS,
       programs: WORKOUT_PROGRAMS
     },
     weekly_measurements: [
@@ -190,9 +190,13 @@ function isWeekend(dateStr) {
   return w === 'Cumartesi' || w === 'Pazar';
 }
 
-function dayIdForDate(dateStr) {
-  const idx = CYCLE_DAYS_TR.indexOf(weekdayTR(dateStr));
-  return idx === -1 ? 1 : idx + 1;
+function nextSuggestedDayId() {
+  const completedLogs = state.daily_logs
+    .filter(l => l.workout_completed)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (completedLogs.length === 0) return 1;
+  const lastDayId = completedLogs[completedLogs.length - 1].workout_completed.day_id;
+  return (lastDayId % WORKOUT_PROGRAMS.length) + 1;
 }
 
 /* ---------------- Persistence ----------------
@@ -328,7 +332,7 @@ function currentLog() {
 
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
-let charts = { weight: null, water: null, steps: null, weekly: null };
+let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null };
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -715,13 +719,12 @@ function renderSymptomsNotes() {
 }
 
 function renderWorkoutModule() {
-  const today = todayISO();
-  const todayDayId = dayIdForDate(today);
-  if (selectedWorkoutDayId === null) selectedWorkoutDayId = todayDayId;
+  const suggestedDayId = nextSuggestedDayId();
+  if (selectedWorkoutDayId === null) selectedWorkoutDayId = suggestedDayId;
 
   const pillsHtml = WORKOUT_PROGRAMS.map(p => `
-    <button class="pill ${p.day_id === selectedWorkoutDayId ? 'active' : ''} ${p.day_id === todayDayId ? 'today' : ''}"
-            onclick="selectWorkoutDay(${p.day_id})">${CYCLE_DAYS_TR[p.day_id - 1]}: ${p.name}</button>
+    <button class="pill ${p.day_id === selectedWorkoutDayId ? 'active' : ''} ${p.day_id === suggestedDayId ? 'suggested' : ''}"
+            onclick="selectWorkoutDay(${p.day_id})">${CYCLE_DAY_LABELS[p.day_id - 1]}: ${p.name}</button>
   `).join('');
 
   const program = WORKOUT_PROGRAMS.find(p => p.day_id === selectedWorkoutDayId);
@@ -915,6 +918,65 @@ function renderCharts() {
         ]
       },
       options: opts
+    });
+  }
+
+  const workoutLogs = state.daily_logs
+    .filter(l => l.workout_completed)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const workoutsCanvas = document.getElementById('chart-workouts');
+  const workoutsEmpty = document.getElementById('chart-workouts-empty');
+  if (workoutLogs.length === 0) {
+    workoutsCanvas.classList.add('hidden');
+    workoutsEmpty.classList.remove('hidden');
+    if (charts.workouts) { charts.workouts.destroy(); charts.workouts = null; }
+  } else {
+    workoutsCanvas.classList.remove('hidden');
+    workoutsEmpty.classList.add('hidden');
+    const wLabels = workoutLogs.map(l => l.date.slice(5));
+    const dayCount = WORKOUT_PROGRAMS.length;
+    upsertChart('workouts', 'chart-workouts', {
+      type: 'line',
+      data: {
+        labels: wLabels,
+        datasets: [{
+          label: 'Tamamlanan Gün',
+          data: workoutLogs.map(l => l.workout_completed.day_id),
+          borderColor: colors.lime,
+          backgroundColor: colors.lime,
+          stepped: false,
+          tension: 0,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Gün #${ctx.raw}`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: colors.muted, font: { family: 'DM Sans', size: 10 } }, grid: { color: colors.grid } },
+          y: {
+            min: 0.5,
+            max: dayCount + 0.5,
+            ticks: {
+              stepSize: 1,
+              color: colors.muted,
+              font: { family: 'DM Sans', size: 10 },
+              callback: (val) => (Number.isInteger(val) && val >= 1 && val <= dayCount) ? `Gün #${val}` : ''
+            },
+            grid: { color: colors.grid }
+          }
+        }
+      }
     });
   }
 }
