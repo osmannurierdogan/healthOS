@@ -111,6 +111,19 @@ const WORKOUT_PROGRAMS = [
   }
 ];
 
+const BODY_MEASUREMENT_FIELDS = [
+  { key: 'neck_cm', label: 'Boyun', color: '#BEE436' },
+  { key: 'shoulder_cm', label: 'Omuz', color: '#1A2E23' },
+  { key: 'chest_cm', label: 'Göğüs', color: '#9A6B0C' },
+  { key: 'biceps_right_cm', label: 'Sağ Biceps', color: '#C0362C' },
+  { key: 'biceps_left_cm', label: 'Sol Biceps', color: '#E8896F' },
+  { key: 'waist_cm', label: 'Bel', color: '#1F7A4D' },
+  { key: 'thigh_right_cm', label: 'Sağ Bacak', color: '#6B7268' },
+  { key: 'thigh_left_cm', label: 'Sol Bacak', color: '#4A7FBF' },
+  { key: 'calf_right_cm', label: 'Sağ Kalf', color: '#8B5FBF' },
+  { key: 'calf_left_cm', label: 'Sol Kalf', color: '#C4915F' }
+];
+
 /* ---------------- Default state ---------------- */
 
 function emptySupplements() {
@@ -164,7 +177,8 @@ function getDefaultState() {
       { date: '2026-06-20', weight: 153.4, muscle_mass_kg: 88.4, fat_mass_kg: 60.4, fluid_kg: 63.8 },
       { date: '2026-06-27', weight: 151.7, muscle_mass_kg: 87.0, fat_mass_kg: 60.1, fluid_kg: 60.9 },
       { date: '2026-07-04', weight: 153.5, muscle_mass_kg: 88.1, fat_mass_kg: 60.6, fluid_kg: 63.3 }
-    ]
+    ],
+    body_measurements: []
   };
 }
 
@@ -334,7 +348,7 @@ function currentLog() {
 
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
-let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null };
+let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null, bodyMeasurements: null };
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -431,6 +445,27 @@ function addWeeklyMeasurement() {
     fat_mass_kg: fat,
     fluid_kg: fluid
   });
+  commit();
+}
+
+function addBodyMeasurement() {
+  const entry = { date: todayISO() };
+  let anyValue = false;
+  BODY_MEASUREMENT_FIELDS.forEach(f => {
+    const raw = document.getElementById('bodymeasure-' + f.key).value;
+    const val = parseFloat(raw);
+    if (!isNaN(val)) {
+      entry[f.key] = val;
+      anyValue = true;
+    } else {
+      entry[f.key] = null;
+    }
+  });
+  if (!anyValue) {
+    alert('Lütfen en az bir ölçüm alanı doldurun.');
+    return;
+  }
+  state.body_measurements.push(entry);
   commit();
 }
 
@@ -538,6 +573,7 @@ function render() {
   renderSymptomsNotes();
   renderWorkoutModule();
   renderWeeklyMeasurements();
+  renderBodyMeasurements();
   renderCharts();
   renderJSONView();
 }
@@ -817,6 +853,43 @@ function renderWeeklyMeasurements() {
   `;
 }
 
+function renderBodyMeasurements() {
+  const list = [...state.body_measurements].sort((a, b) => a.date.localeCompare(b.date));
+
+  const headerHtml = BODY_MEASUREMENT_FIELDS.map(f => `<th>${f.label}</th>`).join('');
+  const rowsHtml = list.map(m => `
+    <tr>
+      <td>${m.date}</td>
+      ${BODY_MEASUREMENT_FIELDS.map(f => `<td>${m[f.key] != null ? m[f.key].toFixed(1) : '—'}</td>`).join('')}
+    </tr>
+  `).join('');
+
+  const weekendHint = isWeekend(todayISO())
+    ? '<p class="kpi-target">Bugün Tanita ölçüm günü — mezura ölçümlerini de aşağıya ekle.</p>' : '';
+
+  const formHtml = BODY_MEASUREMENT_FIELDS.map(f => `
+    <div class="form-row"><label>${f.label} (cm)</label><input type="number" step="0.1" id="bodymeasure-${f.key}"></div>
+  `).join('');
+
+  document.getElementById('body-measurements').innerHTML = `
+    <div class="section-label"><span class="dot"></span>MEZURA</div>
+    <h2>Vücut Ölçüleri</h2>
+    ${weekendHint}
+    ${list.length ? `
+      <div class="table-scroll">
+        <table class="measure-table">
+          <thead><tr><th>Tarih</th>${headerHtml}</tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    ` : '<p class="kpi-target">Henüz ölçüm eklenmedi.</p>'}
+    <div class="measure-input-grid body-measure-grid">
+      ${formHtml}
+    </div>
+    <button class="btn btn-primary" onclick="addBodyMeasurement()">Ölçüm Ekle</button>
+  `;
+}
+
 function chartPalette() {
   const css = getComputedStyle(document.documentElement);
   const get = (name, fallback) => (css.getPropertyValue(name) || fallback).trim();
@@ -981,6 +1054,35 @@ function renderCharts() {
       }
     });
   }
+
+  const bodyList = [...state.body_measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const bodyCanvas = document.getElementById('chart-body-measurements');
+  const bodyEmpty = document.getElementById('chart-body-measurements-empty');
+  if (bodyList.length < 2) {
+    bodyCanvas.classList.add('hidden');
+    bodyEmpty.classList.remove('hidden');
+    if (charts.bodyMeasurements) { charts.bodyMeasurements.destroy(); charts.bodyMeasurements = null; }
+  } else {
+    bodyCanvas.classList.remove('hidden');
+    bodyEmpty.classList.add('hidden');
+    const bLabels = bodyList.map(m => m.date.slice(5));
+    upsertChart('bodyMeasurements', 'chart-body-measurements', {
+      type: 'line',
+      data: {
+        labels: bLabels,
+        datasets: BODY_MEASUREMENT_FIELDS.map(f => ({
+          label: f.label,
+          data: bodyList.map(m => (m[f.key] != null ? m[f.key] : null)),
+          borderColor: f.color,
+          backgroundColor: f.color,
+          spanGaps: true,
+          tension: .3,
+          pointRadius: 3
+        }))
+      },
+      options: opts
+    });
+  }
 }
 
 function renderJSONView() {
@@ -1002,6 +1104,7 @@ let appInitialized = false;
 
 function activateState(newState, statusMsg) {
   state = newState;
+  if (!Array.isArray(state.body_measurements)) state.body_measurements = [];
   const rolledOver = ensureTodayLog();
   hasUnsavedChanges = rolledOver;
   hideLoadGate();

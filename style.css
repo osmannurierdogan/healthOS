@@ -351,9 +351,14 @@ textarea#notes-input {
   .measure-input-grid { grid-template-columns: 1fr; }
 }
 
+.body-measure-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
 /* Weekly measurements */
+.table-scroll { overflow-x: auto; margin-bottom: 4px; }
 table.measure-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
-table.measure-table th, table.measure-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+table.measure-table th, table.measure-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.measure-table th { color: var(--text-dim); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-variant-numeric: normal; }
 .insight-box {
   padding: 12px; border-radius: 12px; font-size: 13px;
