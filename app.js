@@ -31,6 +31,7 @@ const SUPPLEMENT_TIMELINE = [
       { key: 'omega3_lunch_1200', label: 'Nutraxin Omega-3' },
       { key: 'zinc_lunch_1200', label: 'Çinko' },
       { key: 'folic_acid_lunch_1200', label: 'Folik Asit' },
+      { key: 'protein_powder_lunch_1200', label: 'Protein Tozu (1 Ölçek)' },
       { key: 'devit3_friday_only', label: 'Devit-3 (20.000 IU)', condition: 'friday' }
     ]
   },
@@ -120,6 +121,7 @@ function emptySupplements() {
     omega3_lunch_1200: false,
     zinc_lunch_1200: false,
     folic_acid_lunch_1200: false,
+    protein_powder_lunch_1200: false,
     devit3_friday_only: false,
     bromelain_afternoon_1630: false,
     berliv_dinner_2000: false,
