@@ -2,7 +2,9 @@
   "user_profile": {
     "name": "Osman Nuri Erdoğan",
     "current_weight": 153.5,
-    "target_weight": 145.0,
+    "target_weight": 100.0,
+    "weight_milestones": [145, 140, 135, 130, 125, 120, 115, 110, 105, 100],
+    "daily_calorie_budget_kcal": 2000,
     "daily_water_target_liters": 4.0,
     "daily_step_target": 8500
   },
@@ -12,6 +14,7 @@
       "weight": 153.5,
       "water_consumed_liters": 0.0,
       "steps_walked": 0,
+      "green_tea_cups": 0,
       "is_gluten_free": true,
       "symptoms": {
         "headache": false,
@@ -19,6 +22,9 @@
       },
       "supplements": {
         "bromelain_morning_1030": false,
+        "apple_cider_vinegar_morning": false,
+        "electrolyte_mineral_water": false,
+        "edema_water_cocktail": false,
         "diaformin_lunch_1200": false,
         "livex90_lunch_1200": false,
         "omega3_lunch_1200": false,
@@ -29,9 +35,13 @@
         "bromelain_afternoon_1630": false,
         "berliv_dinner_2000": false,
         "livex90_dinner_2000": false,
+        "evening_salad": false,
         "magnesium_night_2230": false
       },
       "workout_completed": null,
+      "cardio_session": null,
+      "sleep_bed_time": null,
+      "sleep_wake_time": null,
       "notes": "İshal sonrası toparlanma, baş ağrısı kontrolü."
     }
   ],

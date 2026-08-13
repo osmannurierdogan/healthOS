@@ -32,6 +32,8 @@
 
   <header id="profile-card" class="card"></header>
 
+  <section id="protocol-notes" class="card"></section>
+
   <div class="section-label"><span class="dot"></span>GÜNLÜK YAŞAMSAL VERİLER</div>
   <section id="kpi-bar" class="grid grid-3">
     <div id="water-card" class="card"></div>
@@ -44,6 +46,8 @@
   <section id="symptoms-notes" class="card"></section>
 
   <section id="workout-module" class="card"></section>
+
+  <section id="cardio-module" class="card"></section>
 
   <section id="weekly-measurements" class="card"></section>
 
@@ -79,6 +83,16 @@
         <h3>Vücut Ölçüleri (Mezura)</h3>
         <canvas id="chart-body-measurements" class="hidden"></canvas>
         <p id="chart-body-measurements-empty" class="hint-text">Henüz yeterli veri yok — en az 2 ölçüm ekleyince burada trend görünecek.</p>
+      </div>
+      <div class="chart-block">
+        <h3>Kardiyo Geçmişi</h3>
+        <canvas id="chart-cardio" class="hidden"></canvas>
+        <p id="chart-cardio-empty" class="hint-text">Henüz kardiyo seansı yok — bir seans eklenince burada görünecek.</p>
+      </div>
+      <div class="chart-block">
+        <h3>Uyku Süresi Geçmişi</h3>
+        <canvas id="chart-sleep" class="hidden"></canvas>
+        <p id="chart-sleep-empty" class="hint-text">Henüz yeterli veri yok — en az 2 gece girişi ekleyince burada trend görünecek.</p>
       </div>
     </div>
   </section>
