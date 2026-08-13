@@ -20,7 +20,16 @@ const SUPPLEMENT_TIMELINE = [
   {
     time: '10:30', icon: '☀️', title: 'SABAH', subtitle: 'Aç Karna Ödem Yönetimi',
     items: [
-      { key: 'bromelain_morning_1030', label: 'Ocean Bromelain (1. Doz)' }
+      { key: 'bromelain_morning_1030', label: 'Ocean Bromelain (1. Doz)' },
+      { key: 'apple_cider_vinegar_morning', label: 'Elma Sirkesi (1 Çay Kaşığı + 1 Bardak Su)' }
+    ]
+  },
+  {
+    time: 'Gün Boyu', icon: '💧', title: 'DETOKS & ÖDEM SÖKÜCÜ', subtitle: 'Hidrasyon ve Ödem Yönetimi',
+    items: [
+      { key: 'green_tea_cups', type: 'counter', label: 'Yeşil Çay', target: 2 },
+      { key: 'electrolyte_mineral_water', label: 'Elektrolit / Maden Suyu (1 Şişe)' },
+      { key: 'edema_water_cocktail', label: 'Ödem Sökücü Su Kokteyli (Maydanoz + Limon + Zencefil)' }
     ]
   },
   {
@@ -45,7 +54,8 @@ const SUPPLEMENT_TIMELINE = [
     time: '20:00', icon: '🌙', title: 'AKŞAM', subtitle: 'Akşam Yemeği & İnsülin Yönetimi',
     items: [
       { key: 'berliv_dinner_2000', label: 'Berliv Berberin (Glikoz Dağıtımı)' },
-      { key: 'livex90_dinner_2000', label: 'Livex 90 (2. Doz)' }
+      { key: 'livex90_dinner_2000', label: 'Livex 90 (2. Doz)' },
+      { key: 'evening_salad', label: 'Kapanış Salatası (Roka, Kereviz, Salatalık, Limon)' }
     ]
   },
   {
@@ -129,6 +139,9 @@ const BODY_MEASUREMENT_FIELDS = [
 function emptySupplements() {
   return {
     bromelain_morning_1030: false,
+    apple_cider_vinegar_morning: false,
+    electrolyte_mineral_water: false,
+    edema_water_cocktail: false,
     diaformin_lunch_1200: false,
     livex90_lunch_1200: false,
     omega3_lunch_1200: false,
@@ -139,6 +152,7 @@ function emptySupplements() {
     bromelain_afternoon_1630: false,
     berliv_dinner_2000: false,
     livex90_dinner_2000: false,
+    evening_salad: false,
     magnesium_night_2230: false
   };
 }
@@ -149,10 +163,14 @@ function newLog(date, carryWeight) {
     weight: carryWeight,
     water_consumed_liters: 0.0,
     steps_walked: 0,
+    green_tea_cups: 0,
     is_gluten_free: true,
     symptoms: { headache: false, fatigue: false },
     supplements: emptySupplements(),
     workout_completed: null,
+    cardio_session: null,
+    sleep_bed_time: null,
+    sleep_wake_time: null,
     notes: ''
   };
 }
@@ -162,7 +180,9 @@ function getDefaultState() {
     user_profile: {
       name: 'Osman Nuri Erdoğan',
       current_weight: 153.5,
-      target_weight: 145.0,
+      target_weight: 100.0,
+      weight_milestones: [145, 140, 135, 130, 125, 120, 115, 110, 105, 100],
+      daily_calorie_budget_kcal: 2000,
       daily_water_target_liters: 4.0,
       daily_step_target: 8500
     },
@@ -348,7 +368,8 @@ function currentLog() {
 
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
-let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null, bodyMeasurements: null };
+let cardioFormOpen = false;
+let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null, bodyMeasurements: null, cardio: null, sleep: null };
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -376,6 +397,12 @@ function toggleSupplement(key) {
   commit();
 }
 
+function addGreenTea() {
+  const log = currentLog();
+  log.green_tea_cups = (log.green_tea_cups || 0) + 1;
+  commit();
+}
+
 function toggleSymptom(key) {
   const log = currentLog();
   log.symptoms[key] = !log.symptoms[key];
@@ -384,8 +411,7 @@ function toggleSymptom(key) {
 
 function setNotes(value) {
   currentLog().notes = value;
-  saveState();
-  renderJSONView();
+  commit();
 }
 
 function setWeight(value) {
@@ -394,6 +420,26 @@ function setWeight(value) {
   currentLog().weight = n;
   state.user_profile.current_weight = n;
   commit();
+}
+
+function setSleepBedTime(value) {
+  currentLog().sleep_bed_time = value || null;
+  commit();
+}
+
+function setSleepWakeTime(value) {
+  currentLog().sleep_wake_time = value || null;
+  commit();
+}
+
+function sleepDurationHours(bedTime, wakeTime) {
+  if (!bedTime || !wakeTime) return null;
+  const [bh, bm] = bedTime.split(':').map(Number);
+  const [wh, wm] = wakeTime.split(':').map(Number);
+  const bedMinutes = bh * 60 + bm;
+  let wakeMinutes = wh * 60 + wm;
+  if (wakeMinutes <= bedMinutes) wakeMinutes += 24 * 60;
+  return (wakeMinutes - bedMinutes) / 60;
 }
 
 function selectWorkoutDay(dayId) {
@@ -426,6 +472,34 @@ function completeWorkout(dayId) {
     completed_at: new Date().toISOString()
   };
   workoutFormOpenForDayId = null;
+  commit();
+}
+
+function openCardioForm() {
+  cardioFormOpen = true;
+  render();
+}
+
+function cancelCardioForm() {
+  cardioFormOpen = false;
+  render();
+}
+
+function logCardioSession() {
+  const type = document.getElementById('cardio-type-input').value;
+  const duration = parseFloat(document.getElementById('cardio-duration-input').value);
+  const calories = parseFloat(document.getElementById('cardio-calories-input').value);
+  if (isNaN(duration) || isNaN(calories)) {
+    alert('Lütfen süre ve kalori alanlarını doldurun.');
+    return;
+  }
+  currentLog().cardio_session = {
+    type: type,
+    duration_min: duration,
+    calories_est: calories,
+    completed_at: new Date().toISOString()
+  };
+  cardioFormOpen = false;
   commit();
 }
 
@@ -536,6 +610,11 @@ function glutenRisk(log) {
   return !log.is_gluten_free;
 }
 
+function nextMilestone(currentWeight) {
+  const milestones = state.user_profile.weight_milestones || [];
+  return milestones.find(m => currentWeight > m);
+}
+
 const WEEKLY_STABLE_THRESHOLD_KG = 0.3;
 
 function weeklyInsight(list) {
@@ -566,12 +645,14 @@ function render() {
   renderSaveStatus();
   renderBanners();
   renderProfileCard();
+  renderProtocolNotes();
   renderWaterCard();
   renderStepsCard();
   renderGlutenCard();
   renderSupplementTimeline();
   renderSymptomsNotes();
   renderWorkoutModule();
+  renderCardioModule();
   renderWeeklyMeasurements();
   renderBodyMeasurements();
   renderCharts();
@@ -641,6 +722,11 @@ function renderProfileCard() {
   const done = startWeight - log.weight;
   const pct = total > 0 ? Math.min(100, Math.max(0, (done / total) * 100)) : 0;
 
+  const nextM = nextMilestone(log.weight);
+  const milestoneHtml = nextM !== undefined
+    ? `<p class="kpi-target">Sıradaki ara hedef: <strong>${nextM} kg</strong> (${(log.weight - nextM).toFixed(1)} kg kaldı)</p>`
+    : `<p class="kpi-target">🎉 Tüm ara hedeflere ulaşıldı!</p>`;
+
   document.getElementById('profile-card').innerHTML = `
     <div class="profile-top">
       <h1>${p.name}</h1>
@@ -648,10 +734,25 @@ function renderProfileCard() {
     </div>
     <div class="progress-track"><div class="progress-fill success" style="width:${pct}%"></div></div>
     <div class="progress-label"><span>Başlangıç: ${startWeight.toFixed(1)} kg</span><span>%${pct.toFixed(0)} tamamlandı</span></div>
+    ${milestoneHtml}
     <div class="form-row" style="margin-top:12px; max-width:180px;">
       <label for="weight-input">Bugünkü Kilo (kg)</label>
       <input type="number" step="0.1" id="weight-input" value="${log.weight}" onchange="setWeight(this.value)">
     </div>
+  `;
+}
+
+function renderProtocolNotes() {
+  const p = state.user_profile;
+  document.getElementById('protocol-notes').innerHTML = `
+    <div class="section-label"><span class="dot"></span>REHBER</div>
+    <h2>Protokol Notları</h2>
+    <ul class="protocol-notes-list">
+      <li><strong>Günlük kalori bütçesi:</strong> ~${p.daily_calorie_budget_kcal} kcal (FatSecret üzerinden ayrıca takip ediliyor).</li>
+      <li><strong>Oruç kapanışı:</strong> Akşam pencere genelde 20:30–23:00 arası kapanır.</li>
+      <li><strong>Mangal/et günlerinde:</strong> Pirzola yerine tavuk göğsü tercih et, porsiyon 300-350gr bandında kalsın.</li>
+      <li><strong>Akşam kapanış rutini:</strong> Geç saatte ağır egzersizden kaçın (vücut ısısı düşsün), yatıştan hemen önce sıvı alma.</li>
+    </ul>
   `;
 }
 
@@ -710,6 +811,18 @@ function renderSupplementTimeline() {
     const itemsHtml = block.items
       .filter(item => item.condition !== 'friday' || isFriday(today))
       .map(item => {
+        if (item.type === 'counter') {
+          const count = log[item.key] || 0;
+          return `
+            <div class="check-item counter-item">
+              <span class="check-label">${item.label}</span>
+              <div class="counter-controls">
+                <span class="counter-value">${count}/${item.target}</span>
+                <button class="btn btn-ghost btn-small" onclick="addGreenTea()">+1 Fincan</button>
+              </div>
+            </div>
+          `;
+        }
         const checked = !!log.supplements[item.key];
         return `
           <label class="check-item ${checked ? 'checked' : ''}">
@@ -739,6 +852,12 @@ function renderSupplementTimeline() {
 
 function renderSymptomsNotes() {
   const log = currentLog();
+  const durationHours = sleepDurationHours(log.sleep_bed_time, log.sleep_wake_time);
+  const inBand = durationHours !== null && durationHours >= 6.5 && durationHours <= 7.5;
+  const durationHtml = durationHours !== null
+    ? `<p class="kpi-target"${inBand ? ' style="color:var(--success);font-weight:700;"' : ''}>Uyku süresi: ${durationHours.toFixed(1)} saat</p>`
+    : '';
+
   document.getElementById('symptoms-notes').innerHTML = `
     <div class="section-label"><span class="dot"></span>DURUM</div>
     <h2>Semptomlar & Notlar</h2>
@@ -752,6 +871,12 @@ function renderSymptomsNotes() {
         Halsizlik
       </label>
     </div>
+    <h3>Uyku (Hedef: 22:15–05:15)</h3>
+    <div class="measure-input-grid" style="grid-template-columns:repeat(2,1fr); margin-top:0; margin-bottom:8px;">
+      <div class="form-row"><label>Yatış Saati</label><input type="time" id="sleep-bed-input" value="${log.sleep_bed_time || ''}" onchange="setSleepBedTime(this.value)"></div>
+      <div class="form-row"><label>Kalkış Saati</label><input type="time" id="sleep-wake-input" value="${log.sleep_wake_time || ''}" onchange="setSleepWakeTime(this.value)"></div>
+    </div>
+    ${durationHtml}
     <textarea id="notes-input" placeholder="Bugünle ilgili notlar..." onchange="setNotes(this.value)">${log.notes}</textarea>
   `;
 }
@@ -812,6 +937,54 @@ function renderWorkoutModule() {
     <h3>${program.name}</h3>
     ${exercisesHtml}
     <div style="margin-top:12px;">${actionHtml}</div>
+  `;
+}
+
+function renderCardioModule() {
+  const log = currentLog();
+  const session = log.cardio_session;
+
+  let actionHtml;
+  if (session) {
+    const typeLabel = session.type === 'yuzme' ? 'Yüzme' : 'Yürüyüş';
+    actionHtml = `
+      <div class="workout-summary">
+        ✅ ${typeLabel} tamamlandı<br>
+        Süre: <strong>${session.duration_min} dk</strong><br>
+        Tahmini Kalori: <strong>${session.calories_est} kcal</strong>
+      </div>
+    `;
+  } else if (cardioFormOpen) {
+    actionHtml = `
+      <div class="form-row">
+        <label for="cardio-type-input">Tür</label>
+        <select id="cardio-type-input" class="steps-input">
+          <option value="yuruyus">Yürüyüş</option>
+          <option value="yuzme">Yüzme</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="cardio-duration-input">Süre (dk)</label>
+        <input type="number" step="1" min="0" id="cardio-duration-input" placeholder="Örn. 110">
+      </div>
+      <div class="form-row">
+        <label for="cardio-calories-input">Tahmini Kalori (kcal)</label>
+        <input type="number" step="10" min="0" id="cardio-calories-input" placeholder="Örn. 980">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="logCardioSession()">Kaydet</button>
+        <button class="btn btn-ghost" onclick="cancelCardioForm()">İptal</button>
+      </div>
+    `;
+  } else {
+    actionHtml = `<button class="btn btn-primary" onclick="openCardioForm()">Kardiyo Seansı Ekle</button>`;
+  }
+
+  document.getElementById('cardio-module').innerHTML = `
+    <div class="section-label"><span class="dot"></span>KARDİYO</div>
+    <h2>Kardiyo Seansları</h2>
+    <p class="hint-text">Yüksek kalorili yürüyüş (~2 saat, ~1000 kcal) veya yüzme seansı.</p>
+    ${actionHtml}
   `;
 }
 
@@ -1083,6 +1256,61 @@ function renderCharts() {
       options: opts
     });
   }
+
+  const cardioLogs = state.daily_logs
+    .filter(l => l.cardio_session)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const cardioCanvas = document.getElementById('chart-cardio');
+  const cardioEmpty = document.getElementById('chart-cardio-empty');
+  if (cardioLogs.length === 0) {
+    cardioCanvas.classList.add('hidden');
+    cardioEmpty.classList.remove('hidden');
+    if (charts.cardio) { charts.cardio.destroy(); charts.cardio = null; }
+  } else {
+    cardioCanvas.classList.remove('hidden');
+    cardioEmpty.classList.add('hidden');
+    upsertChart('cardio', 'chart-cardio', {
+      type: 'bar',
+      data: {
+        labels: cardioLogs.map(l => l.date.slice(5)),
+        datasets: [{
+          label: 'Tahmini Kalori',
+          data: cardioLogs.map(l => l.cardio_session.calories_est),
+          backgroundColor: colors.lime
+        }]
+      },
+      options: opts
+    });
+  }
+
+  const sleepLogs = state.daily_logs
+    .filter(l => l.sleep_bed_time && l.sleep_wake_time)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const sleepCanvas = document.getElementById('chart-sleep');
+  const sleepEmpty = document.getElementById('chart-sleep-empty');
+  if (sleepLogs.length < 2) {
+    sleepCanvas.classList.add('hidden');
+    sleepEmpty.classList.remove('hidden');
+    if (charts.sleep) { charts.sleep.destroy(); charts.sleep = null; }
+  } else {
+    sleepCanvas.classList.remove('hidden');
+    sleepEmpty.classList.add('hidden');
+    upsertChart('sleep', 'chart-sleep', {
+      type: 'line',
+      data: {
+        labels: sleepLogs.map(l => l.date.slice(5)),
+        datasets: [{
+          label: 'Uyku Süresi (saat)',
+          data: sleepLogs.map(l => sleepDurationHours(l.sleep_bed_time, l.sleep_wake_time)),
+          borderColor: colors.lime,
+          backgroundColor: colors.lime,
+          tension: .3,
+          pointRadius: 3
+        }]
+      },
+      options: opts
+    });
+  }
 }
 
 function renderJSONView() {
@@ -1102,9 +1330,27 @@ function setupEntranceAnimation() {
 
 let appInitialized = false;
 
+const NEW_SUPPLEMENT_KEYS = ['apple_cider_vinegar_morning', 'electrolyte_mineral_water', 'edema_water_cocktail', 'evening_salad'];
+
 function activateState(newState, statusMsg) {
   state = newState;
   if (!Array.isArray(state.body_measurements)) state.body_measurements = [];
+  if (!Array.isArray(state.user_profile.weight_milestones)) {
+    state.user_profile.weight_milestones = [145, 140, 135, 130, 125, 120, 115, 110, 105, 100];
+  }
+  if (state.user_profile.daily_calorie_budget_kcal == null) {
+    state.user_profile.daily_calorie_budget_kcal = 2000;
+  }
+  state.daily_logs.forEach(log => {
+    if (log.green_tea_cups == null) log.green_tea_cups = 0;
+    if (log.cardio_session === undefined) log.cardio_session = null;
+    if (log.sleep_bed_time === undefined) log.sleep_bed_time = null;
+    if (log.sleep_wake_time === undefined) log.sleep_wake_time = null;
+    if (!log.supplements) log.supplements = emptySupplements();
+    NEW_SUPPLEMENT_KEYS.forEach(k => {
+      if (log.supplements[k] === undefined) log.supplements[k] = false;
+    });
+  });
   const rolledOver = ensureTodayLog();
   hasUnsavedChanges = rolledOver;
   hideLoadGate();
