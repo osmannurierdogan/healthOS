@@ -872,7 +872,7 @@ function renderSymptomsNotes() {
       </label>
     </div>
     <h3>Uyku (Hedef: 22:15–05:15)</h3>
-    <div class="measure-input-grid" style="grid-template-columns:repeat(2,1fr); margin-top:0; margin-bottom:8px;">
+    <div class="measure-input-grid sleep-input-grid">
       <div class="form-row"><label>Yatış Saati</label><input type="time" id="sleep-bed-input" value="${log.sleep_bed_time || ''}" onchange="setSleepBedTime(this.value)"></div>
       <div class="form-row"><label>Kalkış Saati</label><input type="time" id="sleep-wake-input" value="${log.sleep_wake_time || ''}" onchange="setSleepWakeTime(this.value)"></div>
     </div>
