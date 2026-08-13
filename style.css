@@ -364,6 +364,12 @@ textarea#notes-input {
   margin-top: 0;
   margin-bottom: 8px;
 }
+.sleep-input-grid input[type="time"] {
+  width: calc(100% - 20px);
+  max-width: calc(100% - 20px);
+  margin: 0 auto;
+  display: block;
+}
 
 /* Weekly measurements */
 .table-scroll { overflow-x: auto; margin-bottom: 4px; }
