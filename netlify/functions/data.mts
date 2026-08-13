@@ -1,4 +1,3 @@
-import type { Context, Config } from "@netlify/functions";
 import { getStore, getDeployStore } from "@netlify/blobs";
 import seedData from "../../protocol_state.json" with { type: "json" };
 import fs from "node:fs";
@@ -38,7 +37,7 @@ function isValidState(data: any): boolean {
   return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
 }
 
-export default async (req: Request, context: Context) => {
+export default async (req: Request) => {
   if (!isAuthorized(req)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -77,6 +76,6 @@ export default async (req: Request, context: Context) => {
   return new Response("Method Not Allowed", { status: 405 });
 };
 
-export const config: Config = {
+export const config = {
   path: "/api/data"
 };
