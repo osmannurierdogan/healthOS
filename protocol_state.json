@@ -5,7 +5,18 @@
     "target_weight": 145,
     "daily_water_target_liters": 4,
     "daily_step_target": 8500,
-    "weight_milestones": [145, 140, 135, 130, 125, 120, 115, 110, 105, 100],
+    "weight_milestones": [
+      145,
+      140,
+      135,
+      130,
+      125,
+      120,
+      115,
+      110,
+      105,
+      100
+    ],
     "daily_calorie_budget_kcal": 2000
   },
   "daily_logs": [
@@ -647,7 +658,7 @@
   ],
   "body_measurements": [
     {
-      "date": "2026-08-06",
+      "date": "2026-08-14",
       "neck_cm": 44,
       "shoulder_cm": 147,
       "chest_cm": 133,
