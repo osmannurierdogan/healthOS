@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Health OS</title>
+<title>Osman'ın Sağlık &amp; İş Protokolü</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800;9..40,900&display=swap" rel="stylesheet">
@@ -109,9 +109,11 @@
         <button class="btn btn-ghost" onclick="exportJSON()">İndir</button>
         <button class="btn btn-ghost" onclick="document.getElementById('import-file-input').click()">Yükle</button>
         <input type="file" id="import-file-input" accept="application/json" class="hidden" onchange="handleImportFile(event)">
+        <button id="sync-repo-btn" class="btn btn-ghost" onclick="syncToRepo()">Repoya Yedekle</button>
       </div>
     </div>
     <span id="json-status" class="status-text"></span>
+    <div id="sync-status-banner" class="banner hidden" style="margin-top:10px;"></div>
     <textarea id="json-output" readonly spellcheck="false"></textarea>
   </section>
 
