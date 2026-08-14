@@ -109,9 +109,11 @@
         <button class="btn btn-ghost" onclick="exportJSON()">İndir</button>
         <button class="btn btn-ghost" onclick="document.getElementById('import-file-input').click()">Yükle</button>
         <input type="file" id="import-file-input" accept="application/json" class="hidden" onchange="handleImportFile(event)">
+        <button id="sync-repo-btn" class="btn btn-ghost" onclick="syncToRepo()">Repoya Yedekle</button>
       </div>
     </div>
     <span id="json-status" class="status-text"></span>
+    <div id="sync-status-banner" class="banner hidden" style="margin-top:10px;"></div>
     <textarea id="json-output" readonly spellcheck="false"></textarea>
   </section>
 

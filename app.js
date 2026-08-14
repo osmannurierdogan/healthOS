@@ -1,15 +1,20 @@
 /* ============================================================
    Osman's Health & Business Protocol Tracker — app.js
    Single-file vanilla JS SPA. State lives in `state` (mirrors
-   protocol_state.json). Reads/writes go through /api/data (a
-   Netlify Function backed by Netlify Blobs) — no GitHub commit
-   per save, no external token. The only thing in localStorage is
-   a single shared password used to authorize that endpoint; the
-   repo's protocol_state.json is just the seed/fallback value.
+   protocol_state.json). "Kaydet" writes through /api/data (a
+   Netlify Function backed by Netlify Blobs) — instant, no GitHub
+   commit per save. A separate "Repoya Yedekle" button POSTs to
+   /api/sync-to-repo, which commits the current blob contents to
+   the repo's protocol_state.json via the GitHub API (server-side
+   only — the GitHub token never reaches the browser). The only
+   thing in localStorage is a single shared password used to
+   authorize both endpoints; the repo's protocol_state.json is
+   the seed/fallback value until a manual repo sync updates it.
    No framework, no build step.
    ============================================================ */
 
 const API_URL = '/api/data';
+const SYNC_URL = '/api/sync-to-repo';
 const STATE_FILE = 'protocol_state.json';
 const TOKEN_KEY = 'healthos-token';
 
@@ -261,6 +266,8 @@ let state = null;
 let hasUnsavedChanges = false;
 let saveUiState = 'idle'; // 'idle' | 'saving' | 'saved' | 'error'
 let saveErrorMsg = null;
+let syncUiState = 'idle'; // 'idle' | 'syncing' | 'synced' | 'error'
+let syncErrorMsg = null;
 
 function isValidState(data) {
   return !!(data && data.user_profile && Array.isArray(data.daily_logs) && data.workout_programs && Array.isArray(data.weekly_measurements));
@@ -354,6 +361,45 @@ async function saveState() {
   } catch (e) {
     saveUiState = 'error';
     saveErrorMsg = e.message || 'Bilinmeyen hata';
+    render();
+  }
+}
+
+async function syncToRepo() {
+  if (hasUnsavedChanges) {
+    const proceed = window.confirm('Kaydedilmemiş değişiklikler var. Repoya yedekleme, sadece en son "Kaydet" ile gönderilmiş veriyi kullanır. Yine de devam edilsin mi?');
+    if (!proceed) return;
+  }
+  syncUiState = 'syncing';
+  syncErrorMsg = null;
+  render();
+  try {
+    const res = await fetchWithToken(SYNC_URL, { method: 'POST' });
+    if (res.status === 401) {
+      clearToken();
+      const entered = window.prompt('Parola geçersiz görünüyor. Tekrar girin:');
+      if (entered) {
+        setToken(entered.trim());
+        return syncToRepo();
+      }
+      throw new Error('Yetkilendirme gerekli.');
+    }
+    let payload = null;
+    try { payload = await res.json(); } catch (e) { /* non-JSON response, e.g. 405 plain text */ }
+    if (!res.ok) {
+      throw new Error((payload && payload.error) || `Sunucu hatası (${res.status})`);
+    }
+    syncUiState = 'synced';
+    render();
+    setTimeout(() => {
+      if (syncUiState === 'synced') {
+        syncUiState = 'idle';
+        render();
+      }
+    }, 3500);
+  } catch (e) {
+    syncUiState = 'error';
+    syncErrorMsg = e.message || 'Bilinmeyen hata';
     render();
   }
 }
@@ -697,6 +743,7 @@ function weeklyInsight(list) {
 
 function render() {
   renderSaveStatus();
+  renderSyncStatus();
   renderBanners();
   renderProfileCard();
   renderProtocolNotes();
@@ -735,6 +782,31 @@ function renderSaveStatus() {
     el.classList.remove('hidden');
     el.classList.add('banner-warning');
     el.innerHTML = `⚠️ Kaydedilmemiş değişiklikler var. <button class="btn btn-primary btn-small" onclick="saveState()">Kaydet</button>`;
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+function renderSyncStatus() {
+  const el = document.getElementById('sync-status-banner');
+  const btn = document.getElementById('sync-repo-btn');
+  if (!el) return;
+
+  el.classList.remove('banner-warning', 'banner-danger', 'banner-success');
+  if (btn) btn.disabled = syncUiState === 'syncing';
+
+  if (syncUiState === 'syncing') {
+    el.classList.remove('hidden');
+    el.classList.add('banner-warning');
+    el.innerHTML = `⏳ Repoya yedekleniyor...`;
+  } else if (syncUiState === 'synced') {
+    el.classList.remove('hidden');
+    el.classList.add('banner-success');
+    el.innerHTML = `✅ Repoya yedeklendi.`;
+  } else if (syncUiState === 'error') {
+    el.classList.remove('hidden');
+    el.classList.add('banner-danger');
+    el.innerHTML = `⚠️ Yedekleme başarısız: ${syncErrorMsg} <button class="btn btn-primary btn-small" onclick="syncToRepo()">Tekrar Dene</button>`;
   } else {
     el.classList.add('hidden');
   }
