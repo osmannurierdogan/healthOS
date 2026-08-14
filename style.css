@@ -78,8 +78,10 @@ p { margin: 4px 0; }
 
 .grid { display: grid; gap: 14px; }
 .grid-3 { grid-template-columns: 1fr; }
+.grid-2 { grid-template-columns: 1fr; }
 @media (min-width: 700px) {
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
 }
 
 .hidden { display: none !important; }
@@ -256,6 +258,25 @@ p { margin: 4px 0; }
 .switch input:checked + .switch-track { background: var(--success-dim); border-color: var(--success); }
 .switch input:checked + .switch-track::before { transform: translateX(20px); background: var(--success); }
 .gluten-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+
+/* Habit chains */
+.chain-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.chain-icon { font-size: 26px; margin-bottom: 4px; }
+.chain-count {
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  color: var(--text);
+}
+.chain-label { font-size: 12px; color: var(--text-dim); font-weight: 700; margin-bottom: 4px; }
+.chain-block .gluten-row { text-align: left; }
 
 /* Banners */
 .banner {

@@ -16,6 +16,15 @@
       "steps_walked": 0,
       "green_tea_cups": 0,
       "is_gluten_free": true,
+      "dessert_consumed": false,
+      "packaged_food_consumed": false,
+      "trigger_foods": {
+        "sugar_added": false,
+        "refined_oils_trans_fats": false,
+        "artificial_sweeteners": false,
+        "excess_lactose_dairy": false
+      },
+      "brain_fog_note": "",
       "symptoms": {
         "headache": false,
         "fatigue": false

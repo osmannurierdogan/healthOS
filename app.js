@@ -165,6 +165,15 @@ function newLog(date, carryWeight) {
     steps_walked: 0,
     green_tea_cups: 0,
     is_gluten_free: true,
+    dessert_consumed: false,
+    packaged_food_consumed: false,
+    trigger_foods: {
+      sugar_added: false,
+      refined_oils_trans_fats: false,
+      artificial_sweeteners: false,
+      excess_lactose_dairy: false
+    },
+    brain_fog_note: '',
     symptoms: { headache: false, fatigue: false },
     supplements: emptySupplements(),
     workout_completed: null,
@@ -205,7 +214,10 @@ function getDefaultState() {
 /* ---------------- Date helpers ---------------- */
 
 function todayISO() {
-  const d = new Date();
+  return formatDateISO(new Date());
+}
+
+function formatDateISO(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -388,6 +400,29 @@ function setSteps(value) {
 function toggleGlutenFree() {
   const log = currentLog();
   log.is_gluten_free = !log.is_gluten_free;
+  commit();
+}
+
+function toggleDessert() {
+  const log = currentLog();
+  log.dessert_consumed = !log.dessert_consumed;
+  commit();
+}
+
+function togglePackagedFood() {
+  const log = currentLog();
+  log.packaged_food_consumed = !log.packaged_food_consumed;
+  commit();
+}
+
+function toggleTriggerFood(key) {
+  const log = currentLog();
+  log.trigger_foods[key] = !log.trigger_foods[key];
+  commit();
+}
+
+function setBrainFogNote(value) {
+  currentLog().brain_fog_note = value;
   commit();
 }
 
@@ -615,6 +650,25 @@ function nextMilestone(currentWeight) {
   return milestones.find(m => currentWeight > m);
 }
 
+function computeStreak(predicate) {
+  const logsByDate = {};
+  state.daily_logs.forEach(l => { logsByDate[l.date] = l; });
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  while (true) {
+    const log = logsByDate[formatDateISO(cursor)];
+    if (!log || !predicate(log)) break;
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function glutenFreeStreak() { return computeStreak(l => l.is_gluten_free); }
+function dessertFreeStreak() { return computeStreak(l => !l.dessert_consumed); }
+function packagedFoodFreeStreak() { return computeStreak(l => !l.packaged_food_consumed); }
+
 const WEEKLY_STABLE_THRESHOLD_KG = 0.3;
 
 function weeklyInsight(list) {
@@ -646,9 +700,9 @@ function render() {
   renderBanners();
   renderProfileCard();
   renderProtocolNotes();
+  renderHabitChains();
   renderWaterCard();
   renderStepsCard();
-  renderGlutenCard();
   renderSupplementTimeline();
   renderSymptomsNotes();
   renderWorkoutModule();
@@ -788,18 +842,47 @@ function renderStepsCard() {
   `;
 }
 
-function renderGlutenCard() {
+function renderHabitChains() {
   const log = currentLog();
-  document.getElementById('gluten-card').innerHTML = `
-    <div class="kpi-icon-badge">🌾</div>
-    <h3>Glütensiz Gün</h3>
-    <div class="kpi-value" style="font-size:16px;">${log.is_gluten_free ? 'Glütensiz ✅' : 'Glüten Tüketildi ⚠️'}</div>
-    <div class="gluten-row">
-      <span class="kpi-target">Bugün glüten tüketildi mi?</span>
-      <label class="switch">
-        <input type="checkbox" ${!log.is_gluten_free ? 'checked' : ''} onchange="toggleGlutenFree()">
-        <span class="switch-track"></span>
-      </label>
+
+  const chains = [
+    {
+      icon: '🌾', label: 'Glutensiz Günler', streak: glutenFreeStreak(),
+      failed: !log.is_gluten_free, question: 'Bugün glüten tüketildi mi?',
+      onchange: 'toggleGlutenFree()'
+    },
+    {
+      icon: '🍰', label: 'Tatlısız Günler', streak: dessertFreeStreak(),
+      failed: log.dessert_consumed, question: 'Bugün tatlı tüketildi mi?',
+      onchange: 'toggleDessert()'
+    },
+    {
+      icon: '📦', label: 'Paketli Gıda Tüketmeme', streak: packagedFoodFreeStreak(),
+      failed: log.packaged_food_consumed, question: 'Bugün paketli gıda tüketildi mi?',
+      onchange: 'togglePackagedFood()'
+    }
+  ];
+
+  const blocksHtml = chains.map(c => `
+    <div class="chain-block">
+      <div class="chain-icon">${c.icon}</div>
+      <div class="chain-count">${c.streak}</div>
+      <div class="chain-label">${c.label}</div>
+      <div class="gluten-row">
+        <span class="kpi-target">${c.question}</span>
+        <label class="switch">
+          <input type="checkbox" ${c.failed ? 'checked' : ''} onchange="${c.onchange}">
+          <span class="switch-track"></span>
+        </label>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('habit-chains').innerHTML = `
+    <div class="section-label"><span class="dot"></span>ZİNCİRİ KIRMA</div>
+    <h2>Alışkanlık Zincirleri</h2>
+    <div class="grid grid-3">
+      ${blocksHtml}
     </div>
   `;
 }
@@ -858,6 +941,27 @@ function renderSymptomsNotes() {
     ? `<p class="kpi-target"${inBand ? ' style="color:var(--success);font-weight:700;"' : ''}>Uyku süresi: ${durationHours.toFixed(1)} saat</p>`
     : '';
 
+  const triggerFields = [
+    { key: 'sugar_added', label: 'Şeker / İlave Glikoz' },
+    { key: 'refined_oils_trans_fats', label: 'Rafine Tohum Yağları / Trans Yağlar' },
+    { key: 'artificial_sweeteners', label: 'Yapay Tatlandırıcılar / Katkı Maddeleri' },
+    { key: 'excess_lactose_dairy', label: 'Aşırı Laktoz / İşlenmiş Süt Ürünleri' }
+  ];
+  const triggerRowHtml = triggerFields.map(f => `
+    <label class="symptom-check">
+      <input type="checkbox" ${log.trigger_foods[f.key] ? 'checked' : ''} onchange="toggleTriggerFood('${f.key}')">
+      ${f.label}
+    </label>
+  `).join('');
+
+  const anyTrigger = !log.is_gluten_free || Object.values(log.trigger_foods).some(v => v);
+  const brainFogHtml = anyTrigger ? `
+    <div class="form-row" style="margin-top:8px;">
+      <label for="brain-fog-note-input">Beyin Sisi / Ruh Hali Notu</label>
+      <textarea id="brain-fog-note-input" placeholder="Bugün tetikleyici besin sonrası beyin sisi/ruh hali değişimi hissettin mi?" onchange="setBrainFogNote(this.value)">${log.brain_fog_note}</textarea>
+    </div>
+  ` : '';
+
   document.getElementById('symptoms-notes').innerHTML = `
     <div class="section-label"><span class="dot"></span>DURUM</div>
     <h2>Semptomlar & Notlar</h2>
@@ -871,6 +975,11 @@ function renderSymptomsNotes() {
         Halsizlik
       </label>
     </div>
+    <h3>Tetikleyici Besinler (Beyin Sisi)</h3>
+    <div class="symptom-row">
+      ${triggerRowHtml}
+    </div>
+    ${brainFogHtml}
     <h3>Uyku (Hedef: 22:15–05:15)</h3>
     <div class="measure-input-grid sleep-input-grid">
       <div class="form-row"><label>Yatış Saati</label><input type="time" id="sleep-bed-input" value="${log.sleep_bed_time || ''}" onchange="setSleepBedTime(this.value)"></div>
@@ -1346,6 +1455,20 @@ function activateState(newState, statusMsg) {
     if (log.cardio_session === undefined) log.cardio_session = null;
     if (log.sleep_bed_time === undefined) log.sleep_bed_time = null;
     if (log.sleep_wake_time === undefined) log.sleep_wake_time = null;
+    if (log.dessert_consumed === undefined) log.dessert_consumed = false;
+    if (log.packaged_food_consumed === undefined) log.packaged_food_consumed = false;
+    if (!log.trigger_foods) {
+      log.trigger_foods = {
+        sugar_added: false,
+        refined_oils_trans_fats: false,
+        artificial_sweeteners: false,
+        excess_lactose_dairy: false
+      };
+    }
+    ['sugar_added', 'refined_oils_trans_fats', 'artificial_sweeteners', 'excess_lactose_dairy'].forEach(k => {
+      if (log.trigger_foods[k] === undefined) log.trigger_foods[k] = false;
+    });
+    if (log.brain_fog_note === undefined) log.brain_fog_note = '';
     if (!log.supplements) log.supplements = emptySupplements();
     NEW_SUPPLEMENT_KEYS.forEach(k => {
       if (log.supplements[k] === undefined) log.supplements[k] = false;
