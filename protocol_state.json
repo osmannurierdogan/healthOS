@@ -1,7 +1,7 @@
 {
   "user_profile": {
     "name": "Osman Nuri Erdoğan",
-    "current_weight": 147.4,
+    "current_weight": 147.1,
     "target_weight": 145,
     "daily_water_target_liters": 4,
     "daily_step_target": 8500,
@@ -341,7 +341,7 @@
     {
       "date": "2026-08-14",
       "weight": 147.4,
-      "water_consumed_liters": 4,
+      "water_consumed_liters": 5,
       "steps_walked": 8500,
       "green_tea_cups": 0,
       "is_gluten_free": false,
@@ -385,6 +385,100 @@
       },
       "sleep_bed_time": "00:00",
       "sleep_wake_time": "07:30",
+      "notes": ""
+    },
+    {
+      "date": "2026-08-15",
+      "weight": 147.1,
+      "water_consumed_liters": 1,
+      "steps_walked": 0,
+      "green_tea_cups": 0,
+      "is_gluten_free": true,
+      "dessert_consumed": false,
+      "packaged_food_consumed": false,
+      "trigger_foods": {
+        "sugar_added": false,
+        "refined_oils_trans_fats": false,
+        "artificial_sweeteners": false,
+        "excess_lactose_dairy": false
+      },
+      "brain_fog_note": "",
+      "symptoms": {
+        "headache": false,
+        "fatigue": false
+      },
+      "supplements": {
+        "bromelain_morning_1030": false,
+        "apple_cider_vinegar_morning": false,
+        "electrolyte_mineral_water": false,
+        "edema_water_cocktail": false,
+        "diaformin_lunch_1200": false,
+        "livex90_lunch_1200": false,
+        "omega3_lunch_1200": false,
+        "zinc_lunch_1200": false,
+        "folic_acid_lunch_1200": false,
+        "protein_powder_lunch_1200": false,
+        "devit3_friday_only": false,
+        "bromelain_afternoon_1630": false,
+        "berliv_dinner_2000": false,
+        "livex90_dinner_2000": false,
+        "evening_salad": false,
+        "magnesium_night_2230": false
+      },
+      "workout_completed": {
+        "day_id": 2,
+        "program_name": "Back & Back Leg",
+        "fatigue_rir": null,
+        "cardio": "",
+        "completed_at": "2026-08-15T07:38:41.571Z"
+      },
+      "cardio_session": null,
+      "sleep_bed_time": "01:30",
+      "sleep_wake_time": "08:30",
+      "notes": ""
+    },
+    {
+      "date": "2026-08-18",
+      "weight": 147.1,
+      "water_consumed_liters": 1.5,
+      "steps_walked": 0,
+      "green_tea_cups": 0,
+      "is_gluten_free": true,
+      "dessert_consumed": false,
+      "packaged_food_consumed": false,
+      "trigger_foods": {
+        "sugar_added": false,
+        "refined_oils_trans_fats": false,
+        "artificial_sweeteners": false,
+        "excess_lactose_dairy": false
+      },
+      "brain_fog_note": "",
+      "symptoms": {
+        "headache": false,
+        "fatigue": false
+      },
+      "supplements": {
+        "bromelain_morning_1030": false,
+        "apple_cider_vinegar_morning": false,
+        "electrolyte_mineral_water": false,
+        "edema_water_cocktail": false,
+        "diaformin_lunch_1200": false,
+        "livex90_lunch_1200": false,
+        "omega3_lunch_1200": false,
+        "zinc_lunch_1200": false,
+        "folic_acid_lunch_1200": false,
+        "protein_powder_lunch_1200": false,
+        "devit3_friday_only": false,
+        "bromelain_afternoon_1630": false,
+        "berliv_dinner_2000": false,
+        "livex90_dinner_2000": false,
+        "evening_salad": false,
+        "magnesium_night_2230": false
+      },
+      "workout_completed": null,
+      "cardio_session": null,
+      "sleep_bed_time": "00:00",
+      "sleep_wake_time": "05:15",
       "notes": ""
     }
   ],
@@ -658,7 +752,7 @@
   ],
   "body_measurements": [
     {
-      "date": "2026-08-06",
+      "date": "2026-08-14",
       "neck_cm": 44,
       "shoulder_cm": 147,
       "chest_cm": 133,
