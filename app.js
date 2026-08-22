@@ -20,6 +20,7 @@ const TOKEN_KEY = 'healthos-token';
 
 const CYCLE_DAY_LABELS = ['Gün #1', 'Gün #2', 'Gün #3', 'Gün #4'];
 const WEEKDAY_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+const MONTH_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
 const SUPPLEMENT_TIMELINE = [
   {
@@ -243,6 +244,11 @@ function isWeekend(dateStr) {
   return w === 'Cumartesi' || w === 'Pazar';
 }
 
+function formatDateTR(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getDate()} ${MONTH_TR[d.getMonth()]} ${d.getFullYear()}, ${weekdayTR(dateStr)}`;
+}
+
 function nextSuggestedDayId() {
   const completedLogs = state.daily_logs
     .filter(l => l.workout_completed)
@@ -404,30 +410,59 @@ async function syncToRepo() {
   }
 }
 
-/* ---------------- Rollover ---------------- */
+/* ---------------- Rollover / date navigation ----------------
+   daily_logs is kept sorted by date at all times (see activateState's
+   sort-on-load); ensureLogForDate is the only place new entries get
+   inserted, always in sorted position, so that invariant holds. */
+
+function ensureLogForDate(date) {
+  if (state.daily_logs.some(l => l.date === date)) return false;
+  const earlier = state.daily_logs.filter(l => l.date < date);
+  const carryWeight = earlier.length ? earlier[earlier.length - 1].weight : state.user_profile.current_weight;
+  const log = newLog(date, carryWeight);
+  const insertAt = state.daily_logs.findIndex(l => l.date > date);
+  if (insertAt === -1) state.daily_logs.push(log);
+  else state.daily_logs.splice(insertAt, 0, log);
+  return true;
+}
 
 function ensureTodayLog() {
-  const today = todayISO();
-  const last = state.daily_logs[state.daily_logs.length - 1];
-  if (!last || last.date !== today) {
-    const carryWeight = last ? last.weight : state.user_profile.current_weight;
-    state.daily_logs.push(newLog(today, carryWeight));
-    return true;
-  }
-  if (!last.symptoms) last.symptoms = { headache: false, fatigue: false };
-  return false;
+  return ensureLogForDate(todayISO());
 }
 
 function currentLog() {
-  return state.daily_logs[state.daily_logs.length - 1];
+  return state.daily_logs.find(l => l.date === selectedDate);
 }
 
 /* ---------------- UI-only transient state ---------------- */
 
+let selectedDate = todayISO();
 let selectedWorkoutDayId = null;
 let workoutFormOpenForDayId = null;
 let cardioFormOpen = false;
 let charts = { weight: null, water: null, steps: null, weekly: null, workouts: null, bodyMeasurements: null, cardio: null, sleep: null };
+
+function setSelectedDate(newDate) {
+  selectedDate = newDate;
+  ensureLogForDate(selectedDate);
+  const log = currentLog();
+  selectedWorkoutDayId = (log.workout_completed && log.workout_completed.day_id) || null;
+  workoutFormOpenForDayId = null;
+  cardioFormOpen = false;
+  render();
+}
+
+function shiftSelectedDate(deltaDays) {
+  const d = new Date(selectedDate + 'T00:00:00');
+  d.setDate(d.getDate() + deltaDays);
+  const next = formatDateISO(d);
+  if (next > todayISO()) return; // clamp: no future dates
+  setSelectedDate(next);
+}
+
+function goToToday() {
+  setSelectedDate(todayISO());
+}
 
 /* ---------------- Mutation handlers ---------------- */
 
@@ -499,7 +534,7 @@ function setWeight(value) {
   const n = parseFloat(value);
   if (isNaN(n)) return;
   currentLog().weight = n;
-  state.user_profile.current_weight = n;
+  if (selectedDate === todayISO()) state.user_profile.current_weight = n;
   commit();
 }
 
@@ -593,8 +628,9 @@ function addWeeklyMeasurement() {
     alert('Lütfen tüm ölçüm alanlarını doldurun.');
     return;
   }
+  const dateVal = document.getElementById('measure-date').value || todayISO();
   state.weekly_measurements.push({
-    date: todayISO(),
+    date: dateVal,
     weight: weight,
     muscle_mass_kg: muscle,
     fat_mass_kg: fat,
@@ -604,7 +640,8 @@ function addWeeklyMeasurement() {
 }
 
 function addBodyMeasurement() {
-  const entry = { date: todayISO() };
+  const dateVal = document.getElementById('bodymeasure-date').value || todayISO();
+  const entry = { date: dateVal };
   let anyValue = false;
   BODY_MEASUREMENT_FIELDS.forEach(f => {
     const raw = document.getElementById('bodymeasure-' + f.key).value;
@@ -742,6 +779,7 @@ function weeklyInsight(list) {
 /* ---------------- Render functions ---------------- */
 
 function render() {
+  renderDateNav();
   renderSaveStatus();
   renderSyncStatus();
   renderBanners();
@@ -758,6 +796,21 @@ function render() {
   renderBodyMeasurements();
   renderCharts();
   renderJSONView();
+}
+
+function renderDateNav() {
+  const el = document.getElementById('date-nav');
+  if (!el) return;
+  const isToday = selectedDate === todayISO();
+  el.innerHTML = `
+    <div class="date-nav-row">
+      <button class="btn btn-ghost" onclick="shiftSelectedDate(-1)">◀</button>
+      <input type="date" value="${selectedDate}" max="${todayISO()}" onchange="setSelectedDate(this.value)">
+      <button class="btn btn-ghost" onclick="shiftSelectedDate(1)" ${isToday ? 'disabled' : ''}>▶</button>
+      ${isToday ? '' : `<button class="btn btn-primary btn-small" onclick="goToToday()">Bugüne Dön</button>`}
+    </div>
+    ${isToday ? '' : `<div class="banner banner-warning" style="margin-top:10px;">⚠️ ${formatDateTR(selectedDate)} tarihini görüntülüyor/düzenliyorsun — bugün değil.</div>`}
+  `;
 }
 
 function renderSaveStatus() {
@@ -961,7 +1014,7 @@ function renderHabitChains() {
 
 function renderSupplementTimeline() {
   const log = currentLog();
-  const today = todayISO();
+  const today = selectedDate;
   const blocksHtml = SUPPLEMENT_TIMELINE.map(block => {
     const itemsHtml = block.items
       .filter(item => item.condition !== 'friday' || isFriday(today))
@@ -1198,6 +1251,7 @@ function renderWeeklyMeasurements() {
     ` : '<p class="kpi-target">Henüz ölçüm eklenmedi.</p>'}
     ${insightHtml}
     <div class="measure-input-grid">
+      <div class="form-row"><label>Tarih</label><input type="date" id="measure-date" value="${todayISO()}" max="${todayISO()}"></div>
       <div class="form-row"><label>Kilo (kg)</label><input type="number" step="0.1" id="measure-weight"></div>
       <div class="form-row"><label>Saf Kas (kg)</label><input type="number" step="0.1" id="measure-muscle"></div>
       <div class="form-row"><label>Saf Yağ (kg)</label><input type="number" step="0.1" id="measure-fat"></div>
@@ -1224,6 +1278,7 @@ function renderBodyMeasurements() {
   const formHtml = BODY_MEASUREMENT_FIELDS.map(f => `
     <div class="form-row"><label>${f.label} (cm)</label><input type="number" step="0.1" id="bodymeasure-${f.key}"></div>
   `).join('');
+  const dateFieldHtml = `<div class="form-row"><label>Tarih</label><input type="date" id="bodymeasure-date" value="${todayISO()}" max="${todayISO()}"></div>`;
 
   document.getElementById('body-measurements').innerHTML = `
     <div class="section-label"><span class="dot"></span>MEZURA</div>
@@ -1238,6 +1293,7 @@ function renderBodyMeasurements() {
       </div>
     ` : '<p class="kpi-target">Henüz ölçüm eklenmedi.</p>'}
     <div class="measure-input-grid body-measure-grid">
+      ${dateFieldHtml}
       ${formHtml}
     </div>
     <button class="btn btn-primary" onclick="addBodyMeasurement()">Ölçüm Ekle</button>
@@ -1515,6 +1571,7 @@ const NEW_SUPPLEMENT_KEYS = ['apple_cider_vinegar_morning', 'electrolyte_mineral
 
 function activateState(newState, statusMsg) {
   state = newState;
+  selectedDate = todayISO();
   if (!Array.isArray(state.body_measurements)) state.body_measurements = [];
   if (!Array.isArray(state.user_profile.weight_milestones)) {
     state.user_profile.weight_milestones = [145, 140, 135, 130, 125, 120, 115, 110, 105, 100];
@@ -1545,7 +1602,9 @@ function activateState(newState, statusMsg) {
     NEW_SUPPLEMENT_KEYS.forEach(k => {
       if (log.supplements[k] === undefined) log.supplements[k] = false;
     });
+    if (!log.symptoms) log.symptoms = { headache: false, fatigue: false };
   });
+  state.daily_logs.sort((a, b) => a.date.localeCompare(b.date));
   const rolledOver = ensureTodayLog();
   hasUnsavedChanges = rolledOver;
   hideLoadGate();
